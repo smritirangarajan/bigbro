@@ -172,19 +172,60 @@ document.getElementById('save-settings-btn')?.addEventListener('click', async ()
 });
 
 // Session control - just tracks session state, doesn't use webcam
-document.getElementById('start-session-btn')?.addEventListener('click', async () => {
-  // Session started - just hide/show buttons
-  document.getElementById('start-session-btn').style.display = 'none';
-  document.getElementById('stop-session-btn').style.display = 'inline-block';
-  isSessionActive = true;
-  
-  // Update session status in Supabase
-  const { error } = await supabase.rpc('update_session_status', { is_active_val: true });
-  if (error) {
-    console.error('Error updating session status:', error);
+// Function to check if vision server is running
+async function checkVisionServer() {
+  try {
+    const response = await fetch('http://localhost:8080/status');
+    return response.ok;
+  } catch (error) {
+    return false;
   }
+}
+
+document.getElementById('start-session-btn')?.addEventListener('click', async () => {
+  // Show loading state
+  const startBtn = document.getElementById('start-session-btn');
+  const originalText = startBtn.textContent;
+  startBtn.textContent = 'Starting...';
+  startBtn.disabled = true;
   
-  alert('Session started! You can now use the extension to start monitoring.');
+  try {
+    // Check if vision server is running
+    const serverRunning = await checkVisionServer();
+    if (!serverRunning) {
+      throw new Error('Vision server is not running. Please start it first by running: cd vision && source venv/bin/activate && python ../vision_server.py');
+    }
+    
+    // Session started - hide/show buttons
+    startBtn.style.display = 'none';
+    document.getElementById('stop-session-btn').style.display = 'inline-block';
+    isSessionActive = true;
+    
+    // Store session state for extension
+    localStorage.setItem('isSessionActive', 'true');
+    
+    // Start vision monitor
+    try {
+      await fetch('http://localhost:8080/start_session', { method: 'POST' });
+    } catch (error) {
+      console.error('Error starting vision monitor:', error);
+    }
+    
+    // Update session status in Supabase
+    const { error } = await supabase.rpc('update_session_status', { is_active_val: true });
+    if (error) {
+      console.error('Error updating session status:', error);
+    }
+    
+    alert('Session started! The vision monitor is now active.');
+  } catch (error) {
+    console.error('Error starting session:', error);
+    alert(`Failed to start session: ${error.message}`);
+    
+    // Reset button state
+    startBtn.textContent = originalText;
+    startBtn.disabled = false;
+  }
 });
 
 document.getElementById('stop-session-btn')?.addEventListener('click', async () => {
@@ -192,6 +233,16 @@ document.getElementById('stop-session-btn')?.addEventListener('click', async () 
   document.getElementById('start-session-btn').style.display = 'inline-block';
   document.getElementById('stop-session-btn').style.display = 'none';
   isSessionActive = false;
+  
+  // Remove session state
+  localStorage.removeItem('isSessionActive');
+  
+  // Stop vision monitor
+  try {
+    await fetch('http://localhost:8080/stop_session', { method: 'POST' });
+  } catch (error) {
+    console.error('Error stopping vision monitor:', error);
+  }
   
   // Update session status in Supabase
   const { error } = await supabase.rpc('update_session_status', { is_active_val: false });

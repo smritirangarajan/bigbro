@@ -1,7 +1,11 @@
 .env
+vision/.env
 node_modules/
+vision/venv/
 *.log
 .DS_Store
+__pycache__/
+*.pyc
 
 # Sensitive configuration files - DO NOT COMMIT
 config.js

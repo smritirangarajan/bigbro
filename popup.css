@@ -334,3 +334,116 @@ h3 {
   height: auto;
   border-radius: 8px;
 }
+
+/* Camera Section Styles */
+.camera-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+}
+
+.camera-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.camera-container {
+  width: 100%;
+  max-height: 200px;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#camera-feed {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.camera-placeholder {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.attention-status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.attention-status.status-focused {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.attention-status.status-sleeping {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+.attention-status.status-default {
+  background: rgba(158, 158, 158, 0.2);
+  color: #9e9e9e;
+}
+
+.status-icon {
+  font-size: 16px;
+}
+
+/* Sleep Alert Styles */
+.sleep-alert {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 2px solid #f44336;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.alert-countdown {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f44336;
+}
+
+#countdown-timer {
+  font-size: 18px;
+  font-weight: bold;
+  color: #d32f2f;
+}
+
+.btn-awake {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-awake:hover {
+  background: #45a049;
+}
+
+.btn-awake:active {
+  background: #3d8b40;
+}
