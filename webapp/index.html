@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productivity Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Main Container -->
+  <div id="app" class="app-container">
+    <!-- Auth Section -->
+    <div id="auth-section" class="auth-section">
+      <div class="auth-container">
+        <h1>🎯 Productivity Monitor</h1>
+        
+        <!-- Login View -->
+        <div id="login-view" class="auth-view">
+          <h2>Welcome Back</h2>
+          <input type="email" id="login-email" placeholder="Email" class="input">
+          <input type="password" id="login-password" placeholder="Password" class="input">
+          <button id="login-btn" class="btn btn-primary">Log In</button>
+          <button id="switch-to-signup" class="btn btn-link">Don't have an account? Sign up</button>
+        </div>
+        
+        <!-- Signup View -->
+        <div id="signup-view" class="auth-view" style="display: none;">
+          <h2>Get Started</h2>
+          <input type="email" id="signup-email" placeholder="Email" class="input">
+          <input type="password" id="signup-password" placeholder="Password (min 6 characters)" class="input">
+          <button id="signup-btn" class="btn btn-primary">Sign Up</button>
+          <button id="switch-to-login" class="btn btn-link">Already have an account? Log in</button>
+        </div>
+        
+        <div id="auth-message" class="message"></div>
+      </div>
+    </div>
+    
+    <!-- Main Dashboard (shown when logged in) -->
+    <div id="main-section" class="main-section" style="display: none;">
+      <!-- Header -->
+      <div class="dashboard-header">
+        <h1>🎯 Productivity Monitor</h1>
+        <div class="header-actions">
+          <span id="user-email" class="user-info"></span>
+          <button id="settings-btn" class="btn btn-secondary">⚙️ Settings</button>
+          <button id="logout-btn" class="btn btn-secondary">Log Out</button>
+        </div>
+      </div>
+      
+      <!-- Stats Dashboard -->
+      <div class="stats-dashboard">
+        <div class="stat-card">
+          <h3>Total Strikes</h3>
+          <p class="stat-number" id="total-strikes">0</p>
+        </div>
+        <div class="stat-card">
+          <h3>Total Calls</h3>
+          <p class="stat-number" id="total-calls">0</p>
+        </div>
+      </div>
+      
+      <!-- Session Control -->
+      <div class="session-control">
+        <div class="session-card">
+          <h2>🎯 Work Session</h2>
+          <p class="session-description">Start a work session to enable monitoring. The extension will track your productivity.</p>
+          
+          <button id="start-session-btn" class="btn btn-success">Start Session</button>
+          <button id="stop-session-btn" class="btn btn-danger" style="display: none;">Stop Session</button>
+        </div>
+      </div>
+      
+      <!-- How to Use -->
+      <div class="info-card">
+        <h2>📖 How to Use</h2>
+        <ol>
+          <li>Click "Start Session" above to enable monitoring</li>
+          <li>Open the Chrome extension and set your task</li>
+          <li>The extension will monitor your productivity and call your mom after 2 strikes</li>
+          <li>Click "Stop Session" when you're done</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2>⚙️ Settings</h2>
+      
+      <div class="setting-group">
+        <label>Mom's Phone Number (calls after 2 strikes)</label>
+        <input type="tel" id="mom-phone" placeholder="+1234567890" class="input">
+      </div>
+      
+      <div class="setting-group">
+        <label>Your Phone Number (when away from computer)</label>
+        <input type="tel" id="your-phone" placeholder="+1234567890" class="input">
+      </div>
+      
+      <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+    </div>
+  </div>
+  
+  <script type="module" src="app.js"></script>
+</body>
+</html>
+
