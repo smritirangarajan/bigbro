@@ -65,6 +65,18 @@ h3 {
   margin-bottom: 24px;
 }
 
+#task-input-wrapper {
+  display: block;
+}
+
+#monitoring-controls {
+  display: block;
+}
+
+#monitoring-controls button {
+  margin-bottom: 8px;
+}
+
 #task-input {
   width: 100%;
   min-height: 80px;
@@ -112,6 +124,46 @@ h3 {
 
 .btn-secondary:hover {
   background: #e0e0e0;
+}
+
+.btn-danger {
+  background: #f44336;
+  color: white;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 8px;
+}
+
+.btn-danger:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.btn-success {
+  background: #4caf50;
+  color: white;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 8px;
+}
+
+.btn-success:hover {
+  background: #388e3c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
 }
 
 .stats-section {

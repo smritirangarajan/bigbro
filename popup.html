@@ -7,17 +7,33 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
+  <!-- Login Prompt -->
+  <div id="login-prompt" class="container" style="text-align: center; padding: 30px;">
+    <h1>🎯 Task Monitor</h1>
+    <p style="margin: 20px 0;">Please log in to the web app first</p>
+    <button id="open-webapp-btn" class="btn-primary">Open Web App</button>
+    <p style="margin-top: 20px; font-size: 12px; color: #666;">The extension requires you to log in at http://localhost:8000</p>
+  </div>
+  
+  <!-- Main Container (shown when logged in) -->
+  <div id="main-container" class="container" style="display: none;">
     <h1>🎯 Task Monitor</h1>
     
     <!-- Task Section - First -->
     <div class="task-section">
-      <h2>Set Your Task</h2>
-      <textarea id="task-input" placeholder="What task are you working on?"></textarea>
-      <input type="tel" id="mom-phone-input" placeholder="Mom's phone number (2 strikes) (e.g., +1234567890)" style="width: 100%; padding: 8px; margin-top: 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 4px;">
-      <input type="tel" id="your-phone-input" placeholder="Your phone number (when away from computer) (e.g., +1234567890)" style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px;">
-      <button id="set-task-btn" class="btn-primary">Start Monitoring</button>
-      <button id="stop-task-btn" class="btn-secondary">Stop Monitoring</button>
+      <h2 id="task-section-title">Set Your Task</h2>
+      <div id="task-input-wrapper">
+        <textarea id="task-input" placeholder="What task are you working on?"></textarea>
+        <!-- Phone numbers loaded from Supabase - hidden inputs -->
+        <input type="tel" id="mom-phone-input" style="display: none;">
+        <input type="tel" id="your-phone-input" style="display: none;">
+        <button id="set-task-btn" class="btn-primary">Start Monitoring</button>
+      </div>
+      <div id="monitoring-controls" style="display: none;">
+        <button id="pause-task-btn" class="btn-secondary">Pause Monitoring</button>
+        <button id="resume-task-btn" class="btn-success" style="display: none;">Resume Monitoring</button>
+        <button id="stop-task-btn" class="btn-danger">Finish Task</button>
+      </div>
     </div>
     
     <!-- Current Task Display -->
@@ -59,6 +75,8 @@
     </div>
   </div>
   
+  <script src="config.js"></script>
+  <script src="supabase-ext.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

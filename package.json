@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/smritirangarajan/cal-hacks-fall25#readme",
   "dependencies": {
-    "@letta-ai/letta-client": "^0.0.68665"
+    "@letta-ai/letta-client": "^0.0.68665",
+    "@supabase/supabase-js": "^2.76.1"
   }
 }
