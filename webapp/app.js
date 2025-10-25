@@ -177,6 +177,13 @@ document.getElementById('start-session-btn')?.addEventListener('click', async ()
   document.getElementById('start-session-btn').style.display = 'none';
   document.getElementById('stop-session-btn').style.display = 'inline-block';
   isSessionActive = true;
+  
+  // Update session status in Supabase
+  const { error } = await supabase.rpc('update_session_status', { is_active_val: true });
+  if (error) {
+    console.error('Error updating session status:', error);
+  }
+  
   alert('Session started! You can now use the extension to start monitoring.');
 });
 
@@ -185,6 +192,13 @@ document.getElementById('stop-session-btn')?.addEventListener('click', async () 
   document.getElementById('start-session-btn').style.display = 'inline-block';
   document.getElementById('stop-session-btn').style.display = 'none';
   isSessionActive = false;
+  
+  // Update session status in Supabase
+  const { error } = await supabase.rpc('update_session_status', { is_active_val: false });
+  if (error) {
+    console.error('Error updating session status:', error);
+  }
+  
   alert('Session stopped.');
 });
 

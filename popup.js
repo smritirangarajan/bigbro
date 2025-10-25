@@ -26,7 +26,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const hasPhoneNumbers = phoneData && (phoneData.momPhone || phoneData.yourPhone);
       console.log('✅ Has phone numbers:', hasPhoneNumbers);
       
-      return hasPhoneNumbers;
+      // Also check if session is active
+      const isSessionActive = await checkSessionActive();
+      console.log('📋 Session active:', isSessionActive);
+      
+      return hasPhoneNumbers && isSessionActive;
     } catch (error) {
       console.error('❌ Not logged in:', error);
       return false;
@@ -38,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('🔐 Login status:', isLoggedIn);
   
   if (isLoggedIn) {
-    console.log('✅ Logged in - showing main UI');
+    console.log('✅ Logged in and session active - showing main UI');
     loginPrompt.style.display = 'none';
     mainContainer.style.display = 'block';
     
@@ -124,6 +128,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const task = taskInput.value.trim();
     if (!task) {
       alert('Please enter a task');
+      return;
+    }
+
+    // Check if session is active
+    const isSessionActive = await checkSessionActive();
+    if (!isSessionActive) {
+      alert('Please start a session in the web app first (http://localhost:8000)');
       return;
     }
 
