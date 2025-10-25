@@ -85,4 +85,40 @@ async function incrementCalls() {
   } catch (error) {
     console.error('Error updating calls:', error);
   }
+}
+
+// Check if session is active in Supabase
+async function checkSessionActive() {
+  try {
+    console.log('Checking session status from Supabase...');
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=is_active`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Supabase response not ok:', response.status);
+      return false;
+    }
+    
+    const data = await response.json();
+    console.log('Session data:', data);
+    
+    if (data && data.length > 0) {
+      // Check if any user has an active session
+      const hasActiveSession = data.some(session => session.is_active === true);
+      console.log('Has active session:', hasActiveSession);
+      return hasActiveSession;
+    }
+    
+    console.log('No active sessions found');
+    return false;
+  } catch (error) {
+    console.error('Error checking session status:', error);
+    return false;
+  }
 } 

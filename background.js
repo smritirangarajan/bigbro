@@ -62,6 +62,15 @@ async function startMonitoring() {
   // Check more frequently to update status quickly
   monitoringInterval = setInterval(async () => {
     console.log('📊 Periodic check triggered...');
+    
+    // Check if session is still active
+    const isSessionActive = await checkSessionFromBackground();
+    if (!isSessionActive) {
+      console.log('❌ Session no longer active, stopping monitoring');
+      await stopMonitoring();
+      return;
+    }
+    
     await checkTask();
   }, 5000); // Check every 5 seconds instead of 30
   
@@ -292,6 +301,7 @@ async function stopMonitoring() {
   
   // Reset stats in storage
   await chrome.storage.local.set({
+    isMonitoring: false,
     strikes: 0,
     checks: 0,
     currentTabProductivity: 'Unknown',
@@ -443,6 +453,14 @@ async function checkTask() {
       console.log('⏸️ Cooldown active - skipping strike, must wait', Math.ceil((30000 - timeSinceLastStrike) / 1000), 'more seconds');
     }
     
+    // If we should add a strike, update lastStrikeTime FIRST to prevent duplicates
+    if (shouldAddStrike) {
+      lastStrikeTime = Date.now();
+      // Save to storage so it persists across service worker restarts
+      await chrome.storage.local.set({ lastStrikeTime: lastStrikeTime });
+      console.log('⏰ Last strike time updated (before adding strike), must wait 30 seconds for next strike');
+    }
+    
     // Update stats (isOnTask is now guaranteed to be a boolean)
     const { strikes, checks } = await chrome.storage.local.get(['strikes', 'checks']);
     const newChecks = (checks || 0) + 1;
@@ -490,24 +508,22 @@ async function checkTask() {
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
       console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
       
-      // Record when we added this strike
-      lastStrikeTime = Date.now();
-      // Save to storage so it persists across service worker restarts
-      await chrome.storage.local.set({ lastStrikeTime: lastStrikeTime });
-      console.log('⏰ Last strike time updated, must wait 30 seconds for next strike');
+      // Call mom if we hit 3 strikes and haven't called yet
+      console.log('📞 Checking if should call mom... newStrikes:', newStrikes, '>= 3?', newStrikes >= 3, 'momCalled:', momCalled, '!momCalled:', !momCalled);
       
-      // Call mom if we hit 2 strikes and haven't called yet
-      console.log('📞 Checking if should call mom... newStrikes:', newStrikes, '>= 2?', newStrikes >= 2, 'momCalled:', momCalled, '!momCalled:', !momCalled);
-      
-      if (newStrikes >= 2 && !momCalled) {
-        console.log('📞 2 strikes reached! Calling mom...');
+      if (newStrikes >= 3 && !momCalled) {
+        console.log('📞 3 strikes reached! Calling mom...');
         console.log('📞 momCalled status before call:', momCalled);
         momCalled = true; // Set this FIRST to prevent duplicate calls
         console.log('📞 Set momCalled to true, now calling...');
+        
+        // Reset display strikes to 0 but keep tracking in backend
+        await chrome.storage.local.set({ strikes: 0 });
+        
         await callMom(currentTask);
         console.log('📞 Call completed');
       } else {
-        console.log('📞 Skipping call - newStrikes:', newStrikes, '>= 2?', newStrikes >= 2, 'momCalled:', momCalled);
+        console.log('📞 Skipping call - newStrikes:', newStrikes, '>= 3?', newStrikes >= 3, 'momCalled:', momCalled);
       }
     } else {
       console.log('✅ User is on task!');
@@ -1131,6 +1147,34 @@ async function callUserAway() {
   } catch (error) {
     console.error('❌ Error calling user for being away:', error);
     console.error('❌ Error stack:', error.stack);
+  }
+}
+
+// Check session status from background script
+async function checkSessionFromBackground() {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=is_active`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      return false;
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return data.some(session => session.is_active === true);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking session status:', error);
+    return false;
   }
 }
 
