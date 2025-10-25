@@ -14,3 +14,14 @@ webapp/config.js
 # Template files (these are safe to commit)
 # config_template.js (in root)
 # webapp/config_template.js
+
+
+# Python virtual environments
+venv/
+.venv/
+.env
+__pycache__/
+.events/
+*.pyc
+.DS_Store
+events.jsonl
