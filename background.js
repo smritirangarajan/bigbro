@@ -2,14 +2,12 @@
 // Import configuration - for Manifest V3, we'll use the constants directly
 const CLAUDE_API_KEY = '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';
 const GEMINI_API_KEY = 'AIzaSyAyL9mtisO5d6eFS0j260rsZaxfbYavWSE';
-const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OmEwN2MwZjFmLTczY2UtNGE3Zi05MDYyLTQ2YTRlMmVlZTZmMg==';
+const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OjEyYTE4OTUyLTNmNGEtNDliNy1hM2IyLTFhM2I0ODNhYzU2NQ==';
 const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
 const LETTA_AGENT_ID = 'agent-90ee73f6-e688-470d-977a-7f0e8f31c783';
 
 let monitoringInterval = null;
 let lettaAgentId = LETTA_AGENT_ID;
-let recordingInterval = null;
-let recordingStream = null;
 let currentTabUrl = null;
 let tabStartTime = null;
 let pendingCheck = null;
@@ -20,11 +18,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     startMonitoring();
   } else if (message.action === 'stopMonitoring') {
     stopMonitoring();
-  } else if (message.action === 'startRecording') {
-    startVisualRecording(message.streamId);
-  } else if (message.action === 'stopRecording') {
-    stopVisualRecording();
-  }
+  // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
 });
 
@@ -514,7 +508,7 @@ Be STRICT about task matching:
 
 // Keep the old function structure for the rest of the blocks
 async function initializeLettaAgent_OLD(task) {
-  const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OmEwN2MwZjFmLTczY2UtNGE3Zi05MDYyLTQ2YTRlMmVlZTZmMg==';
+  const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OjEyYTE4OTUyLTNmNGEtNDliNy1hM2IyLTFhM2I0ODNhYzU2NQ==';
   const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
   
   try {
@@ -719,40 +713,7 @@ Respond with ONLY "PRODUCTIVE" or "UNPRODUCTIVE" - no other text.`,
   }
 }
 
-// Visual Recording Functions
-async function startVisualRecording(streamId) {
-  if (recordingInterval) return;
-  
-  console.log('Starting visual recording...');
-  
-  recordingInterval = setInterval(async () => {
-    await analyzeCurrentScreen();
-  }, 30000);
-  
-  await analyzeCurrentScreen();
-}
-
-function stopVisualRecording() {
-  if (recordingInterval) {
-    clearInterval(recordingInterval);
-    recordingInterval = null;
-  }
-  console.log('Stopped visual recording');
-}
-
-async function analyzeCurrentScreen() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    
-    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
-    
-    console.log('Screen captured for analysis');
-    
-  } catch (error) {
-    console.error('Error analyzing screen:', error);
-  }
-}
+// Recording functions removed - screenshots are captured automatically during monitoring
 
 // Listen for installation
 chrome.runtime.onInstalled.addListener(() => {

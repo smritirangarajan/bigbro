@@ -1,0 +1,23 @@
+FIXES APPLIED:
+
+1. COOLDOWN DEBUGGING:
+   - Added detailed logs showing last strike time
+   - Shows time since last strike
+   - Shows if cooldown is active and how much time is left
+
+2. ALERT FIX:
+   - Added fallback using chrome.scripting.executeScript
+   - If content script fails, it will inject an alert function directly
+   - You should now see alerts when strikes are added
+
+CRITICAL: RELOAD THE EXTENSION!
+
+The code has changed - you MUST reload:
+1. Go to chrome://extensions
+2. Click RELOAD on your extension
+3. Check the console - you should see:
+   - ⏰ Cooldown check logs
+   - 📤 Alert injection logs
+   - ⏸️ Cooldown active messages
+
+Let me know what you see in the console!

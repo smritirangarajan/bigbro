@@ -1,0 +1,22 @@
+REMOVED: Start Recording Button
+
+WHAT WAS REMOVED:
+1. startVisualRecording() function
+2. stopVisualRecording() function  
+3. analyzeCurrentScreen() function
+4. Message handlers for startRecording/stopRecording
+5. Unused recordingInterval and recordingStream variables
+
+WHY IT'S NOT NEEDED:
+- Screenshots are already captured automatically during productivity checks
+- Each checkTask() call captures a screenshot and sends it to Claude
+- The "start recording" button was doing nothing useful
+
+HOW IT WORKS NOW:
+1. User sets task and clicks "Start Monitoring"
+2. Extension checks every 5 seconds
+3. On each check, it automatically captures a screenshot
+4. Screenshot is sent to Claude Vision for analysis
+5. Claude analyzes the actual screen content
+
+NO SEPARATE RECORDING STEP NEEDED!
