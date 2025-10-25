@@ -1,14 +1,6 @@
 
-// Import configuration - for Manifest V3, we'll use the constants directly
-const CLAUDE_API_KEY = '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';
-const GEMINI_API_KEY = 'AIzaSyAyL9mtisO5d6eFS0j260rsZaxfbYavWSE';
-const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OjEyYTE4OTUyLTNmNGEtNDliNy1hM2IyLTFhM2I0ODNhYzU2NQ==';
-const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
-const LETTA_AGENT_ID = 'agent-90ee73f6-e688-470d-977a-7f0e8f31c783';
-const VAPI_PRIVATE_KEY = '5d9a54ae-c4ee-44ad-b17f-3aab8f829d7e';
-const VAPI_PHONE_NUMBER_ID = 'a2502e80-e910-4b99-9958-3661de513d41'; // Get this from Vapi dashboard -> Phone Numbers
-const VAPI_ASSISTANT_ID = 'c39bb5dc-e675-4430-97d6-49b9ab6f109c'; // Mom call (2 strikes)
-const VAPI_AWAY_ASSISTANT_ID = '6bb4ff29-2643-4932-8ea5-122a820d74f4'; // Away call (user away from computer)
+// Import configuration from config.js
+importScripts('config.js');
 
 let monitoringInterval = null;
 let lettaAgentId = LETTA_AGENT_ID;
@@ -18,12 +10,24 @@ let pendingCheck = null;
 let momCalled = false;
 let lastStrikeTime = null;
 
+// Initialize lastStrikeTime from storage on service worker start
+chrome.storage.local.get(['lastStrikeTime']).then(({ lastStrikeTime: stored }) => {
+  if (stored) {
+    lastStrikeTime = stored;
+    console.log('✅ Restored lastStrikeTime from storage:', new Date(lastStrikeTime).toLocaleTimeString());
+  }
+});
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'startMonitoring') {
     startMonitoring();
   } else if (message.action === 'stopMonitoring') {
     stopMonitoring();
+  } else if (message.action === 'pauseMonitoring') {
+    console.log('⏸️ Monitoring paused');
+  } else if (message.action === 'resumeMonitoring') {
+    console.log('▶️ Monitoring resumed');
   }
   // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
@@ -52,8 +56,8 @@ async function startMonitoring() {
   // Use existing Letta agent
   console.log('Using Letta agent ID:', lettaAgentId);
   
-  // Start webcam detection
-  startWebcamDetection();
+  // Webcam detection disabled - only calling mom for 2 strikes
+  // startWebcamDetection();
   
   // Check more frequently to update status quickly
   monitoringInterval = setInterval(async () => {
@@ -102,17 +106,18 @@ async function createWebcamTab() {
     // Wait a bit for the tab to load and request camera permission
     await new Promise(resolve => setTimeout(resolve, 3000));
     
+    // Webcam checking disabled - only calling mom for 2 strikes
     // Start checking every minute
-    webcamCheckInterval = setInterval(async () => {
-      console.log('⏰ Webcam check interval triggered...');
-      await checkWebcamForUser();
-    }, 60000); // 1 minute
+    // webcamCheckInterval = setInterval(async () => {
+    //   console.log('⏰ Webcam check interval triggered...');
+    //   await checkWebcamForUser();
+    // }, 60000); // 1 minute
     
     // Initial check after setup
-    setTimeout(() => {
-      console.log('🚀 Starting initial webcam check...');
-      checkWebcamForUser();
-    }, 5000);
+    // setTimeout(() => {
+    //   console.log('🚀 Starting initial webcam check...');
+    //   checkWebcamForUser();
+    // }, 5000);
   } catch (error) {
     console.error('Error creating webcam tab:', error);
   }
@@ -299,12 +304,18 @@ async function stopMonitoring() {
 
 async function checkTask() {
   try {
-    const { currentTask, isMonitoring } = await chrome.storage.local.get(['currentTask', 'isMonitoring']);
+    const { currentTask, isMonitoring, isPaused } = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused']);
     
-    console.log('🔍 checkTask called. isMonitoring:', isMonitoring, 'currentTask:', currentTask);
+    console.log('🔍 checkTask called. isMonitoring:', isMonitoring, 'isPaused:', isPaused, 'currentTask:', currentTask);
     
     if (!isMonitoring) {
       console.log('❌ Monitoring is OFF, skipping check');
+      return;
+    }
+    
+    // If paused, don't check but don't reset anything
+    if (isPaused) {
+      console.log('⏸️ Monitoring is PAUSED, skipping check');
       return;
     }
     
@@ -328,10 +339,11 @@ async function checkTask() {
       tabStartTime = Date.now();
       lastStrikeTime = null; // Reset cooldown on tab change
       
-      // Store tab info
+      // Store tab info and clear lastStrikeTime
       await chrome.storage.local.set({
         tabStartTime: tabStartTime,
-        currentTabProductivity: 'Checking...'
+        currentTabProductivity: 'Checking...',
+        lastStrikeTime: null
       });
       
       // Clear any pending check
@@ -461,11 +473,27 @@ async function checkTask() {
       console.log('⚠️ STRIKE ADDED! User is not on a productive website.');
       console.log(`User has been on ${hostname} for 30+ seconds. Total strikes: ${newStrikes}`);
       
+      // Update Supabase total_strikes
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_strikes`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (e) {
+        console.log('Could not update Supabase strikes:', e);
+      }
+      
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
       console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
       
       // Record when we added this strike
       lastStrikeTime = Date.now();
+      // Save to storage so it persists across service worker restarts
+      await chrome.storage.local.set({ lastStrikeTime: lastStrikeTime });
       console.log('⏰ Last strike time updated, must wait 30 seconds for next strike');
       
       // Call mom if we hit 2 strikes and haven't called yet
@@ -1028,6 +1056,20 @@ async function callMom(currentTask) {
     if (response.ok) {
       const responseData = await response.json();
       console.log('✅ Mom call initiated successfully:', responseData);
+      
+      // Update Supabase total_calls
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_calls`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (e) {
+        console.log('Could not update Supabase calls:', e);
+      }
     } else {
       const errorText = await response.text();
       console.error('❌ Failed to call mom. Status:', response.status, 'Error:', errorText);

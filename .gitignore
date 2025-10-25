@@ -2,3 +2,11 @@
 node_modules/
 *.log
 .DS_Store
+
+# Sensitive configuration files - DO NOT COMMIT
+config.js
+webapp/config.js
+
+# Template files (these are safe to commit)
+# config_template.js (in root)
+# webapp/config_template.js

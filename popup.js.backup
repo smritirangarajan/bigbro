@@ -1,76 +1,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const loginPrompt = document.getElementById('login-prompt');
-  const mainContainer = document.getElementById('main-container');
   const taskInput = document.getElementById('task-input');
-  const taskInputWrapper = document.getElementById('task-input-wrapper');
-  const monitoringControls = document.getElementById('monitoring-controls');
   const momPhoneInput = document.getElementById('mom-phone-input');
   const yourPhoneInput = document.getElementById('your-phone-input');
   const setTaskBtn = document.getElementById('set-task-btn');
-  const pauseTaskBtn = document.getElementById('pause-task-btn');
-  const resumeTaskBtn = document.getElementById('resume-task-btn');
   const stopTaskBtn = document.getElementById('stop-task-btn');
   const currentTaskDisplay = document.getElementById('current-task');
   const strikeCount = document.getElementById('strike-count');
   const monitoringIndicator = document.getElementById('monitoring-indicator');
   const monitoringText = document.getElementById('monitoring-text');
-  const openWebappBtn = document.getElementById('open-webapp-btn');
-  
-  // Check if user is logged in by checking for phone numbers in Supabase
-  async function checkLoginStatus() {
-    try {
-      console.log('🔍 Checking login status...');
-      const phoneData = await getPhoneNumbersFromSupabase();
-      console.log('📱 Phone data received:', phoneData);
-      
-      const hasPhoneNumbers = phoneData && (phoneData.momPhone || phoneData.yourPhone);
-      console.log('✅ Has phone numbers:', hasPhoneNumbers);
-      
-      return hasPhoneNumbers;
-    } catch (error) {
-      console.error('❌ Not logged in:', error);
-      return false;
-    }
-  }
-  
-  // Check login and show appropriate UI
-  const isLoggedIn = await checkLoginStatus();
-  console.log('🔐 Login status:', isLoggedIn);
-  
-  if (isLoggedIn) {
-    console.log('✅ Logged in - showing main UI');
-    loginPrompt.style.display = 'none';
-    mainContainer.style.display = 'block';
-    
-    // Load phone numbers
-    const phoneData = await getPhoneNumbersFromSupabase();
-    if (phoneData && phoneData.momPhone) {
-      momPhoneInput.value = phoneData.momPhone;
-      console.log('✅ Loaded mom phone:', phoneData.momPhone);
-    }
-    if (phoneData && phoneData.yourPhone) {
-      yourPhoneInput.value = phoneData.yourPhone;
-      console.log('✅ Loaded your phone:', phoneData.yourPhone);
-    }
-  } else {
-    console.log('❌ Not logged in - showing login prompt');
-    loginPrompt.style.display = 'block';
-    mainContainer.style.display = 'none';
-  }
-  
-  // Open web app button
-  openWebappBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:8000' });
-  });
 
   // Load current state
   async function loadState() {
-    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber']);
+    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber']);
     
     if (result.currentTask) {
       currentTaskDisplay.innerHTML = `<p class="task-text">${result.currentTask}</p>`;
-    } else {
-      currentTaskDisplay.innerHTML = '<p class="no-task">No task set yet</p>';
     }
     
     // Load phone numbers if saved
@@ -82,37 +26,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       yourPhoneInput.value = result.yourPhoneNumber;
     }
     
-    // Show/hide UI based on monitoring state
+    // Show/hide buttons based on monitoring state
     if (result.isMonitoring) {
       monitoringIndicator.classList.add('active');
-      monitoringText.textContent = result.isPaused ? 'Monitoring: PAUSED' : 'Monitoring: ON';
-      
-      // Hide task input wrapper completely
-      taskInputWrapper.style.display = 'none';
-      
-      // Show monitoring controls
-      monitoringControls.style.display = 'block';
-      
-      // Show pause/resume based on paused state
-      if (result.isPaused) {
-        pauseTaskBtn.style.display = 'none';
-        resumeTaskBtn.style.display = 'inline-block';
-      } else {
-        pauseTaskBtn.style.display = 'inline-block';
-        resumeTaskBtn.style.display = 'none';
-      }
+      monitoringText.textContent = 'Monitoring: ON';
+      setTaskBtn.style.display = 'none';
+      stopTaskBtn.style.display = 'inline-block';
     } else {
       monitoringIndicator.classList.remove('active');
       monitoringText.textContent = 'Monitoring: OFF';
-      
-      // Show task input wrapper
-      taskInputWrapper.style.display = 'block';
-      
-      // Hide monitoring controls
-      monitoringControls.style.display = 'none';
-      
-      // Clear inputs
-      taskInput.value = '';
+      setTaskBtn.style.display = 'inline-block';
+      stopTaskBtn.style.display = 'none';
     }
     
     const strikes = result.strikes || 0;
@@ -127,14 +51,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Phone numbers are already loaded from Supabase
     const momPhone = momPhoneInput.value.trim();
     const yourPhone = yourPhoneInput.value.trim();
-    
-    if (!momPhone && !yourPhone) {
-      alert('Please set your phone numbers in the web app settings first');
-      return;
-    }
 
     await chrome.storage.local.set({
       currentTask: task,
@@ -153,39 +71,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.sendMessage({ action: 'startMonitoring', task: task });
   });
 
-  // Pause monitoring
-  pauseTaskBtn.addEventListener('click', async () => {
-    await chrome.storage.local.set({ isPaused: true });
-    pauseTaskBtn.style.display = 'none';
-    resumeTaskBtn.style.display = 'inline-block';
-    chrome.runtime.sendMessage({ action: 'pauseMonitoring' });
-    await loadState(); // Refresh UI
-  });
-
-  // Resume monitoring
-  resumeTaskBtn.addEventListener('click', async () => {
-    await chrome.storage.local.set({ isPaused: false });
-    pauseTaskBtn.style.display = 'inline-block';
-    resumeTaskBtn.style.display = 'none';
-    chrome.runtime.sendMessage({ action: 'resumeMonitoring' });
-    await loadState(); // Refresh UI
-  });
-
-  // Finish task (stop monitoring)
+  // Stop monitoring
   stopTaskBtn.addEventListener('click', async () => {
     await chrome.storage.local.set({ 
       isMonitoring: false,
-      isPaused: false,
-      currentTask: '', // Clear the task
       strikes: 0,
       checks: 0,
       currentTabProductivity: 'Unknown',
       tabStartTime: null
     });
-    
-    // Clear the task input
-    taskInput.value = '';
-    
     await loadState();
     
     // Notify background script
