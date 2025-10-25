@@ -33,11 +33,6 @@ async function startMonitoring() {
   
   console.log('Starting task monitoring');
   
-  // TEST: Call mom immediately to verify it works
-  console.log('🧪 TEST: Calling mom immediately to test...');
-  const testTask = await chrome.storage.local.get(['currentTask']);
-  await callMom(testTask.currentTask || 'test task');
-  
   // Reset strikes and checks to 0 when starting
   await chrome.storage.local.set({
     strikes: 0,
@@ -237,17 +232,6 @@ async function checkTask() {
     });
     
     console.log('🔍 DEBUG: shouldAddStrike:', shouldAddStrike, 'newStrikes:', newStrikes);
-    
-    // Check if we should call mom (even if we're not adding a new strike)
-    // We call mom when strikes reach 2, regardless of cooldown
-    if (newStrikes >= 2 && !momCalled && !isOnTask && timeOnTabNow >= 30000) {
-      console.log('📞 2+ strikes detected and user is unproductive! Calling mom...');
-      console.log('📞 momCalled status before call:', momCalled);
-      momCalled = true; // Set this FIRST to prevent duplicate calls
-      console.log('📞 Set momCalled to true, now calling...');
-      await callMom(currentTask);
-      console.log('📞 Call completed');
-    }
     
     if (shouldAddStrike) {
       console.log('✅ Entering shouldAddStrike block');
