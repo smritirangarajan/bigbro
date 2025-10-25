@@ -30,6 +30,28 @@
       </div>
     </div>
     
+    <!-- Camera Feed Section -->
+    <div id="camera-section" class="camera-section" style="display: none;">
+      <h3>🎥 Attention Monitor</h3>
+      <div class="camera-container">
+        <img id="camera-feed" src="" alt="Camera Feed" style="width: 100%; border-radius: 8px; display: none;">
+        <div id="camera-placeholder" class="camera-placeholder">
+          Camera feed will appear when session is active
+        </div>
+      </div>
+         <div id="attention-status" class="attention-status status-default">
+           <span class="status-icon">👁️</span>
+           <span id="attention-text">Looking for face...</span>
+         </div>
+         <div id="sleep-alert" class="sleep-alert" style="display: none;">
+           <div class="alert-countdown">
+             <span id="countdown-text">Sleep alert in: </span>
+             <span id="countdown-timer">60</span>
+           </div>
+           <button id="im-awake-btn" class="btn-awake">I'm Awake!</button>
+         </div>
+    </div>
+    
     <!-- Task Section - First -->
     <div class="task-section">
       <h2 id="task-section-title">Set Your Task</h2>

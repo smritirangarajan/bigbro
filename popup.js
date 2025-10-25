@@ -271,4 +271,92 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateCurrentTabInfo();
     }
   });
+  
+// Camera feed and attention monitoring
+const cameraSection = document.getElementById('camera-section');
+const cameraFeed = document.getElementById('camera-feed');
+const cameraPlaceholder = document.getElementById('camera-placeholder');
+const attentionStatus = document.getElementById('attention-status');
+const attentionText = document.getElementById('attention-text');
+const sleepAlert = document.getElementById('sleep-alert');
+const countdownTimer = document.getElementById('countdown-timer');
+const imAwakeBtn = document.getElementById('im-awake-btn');
+  
+  // Check if session is active and show camera section
+  async function updateCameraSection() {
+    // Check Supabase session status (same as login check)
+    const isSessionActive = await checkSessionActive();
+    
+    console.log('📹 Camera section check - Session active:', isSessionActive);
+    
+    if (isSessionActive) {
+      cameraSection.style.display = 'block';
+      cameraFeed.src = 'http://localhost:8080/video_feed';
+      cameraFeed.style.display = 'block';
+      cameraPlaceholder.style.display = 'none';
+      
+      console.log('📹 Camera section shown');
+      
+      // Start updating attention status
+      updateAttentionStatus();
+    } else {
+      cameraSection.style.display = 'none';
+      console.log('📹 Camera section hidden');
+    }
+  }
+  
+// Update attention status from vision server
+async function updateAttentionStatus() {
+  try {
+    const response = await fetch('http://localhost:8080/status');
+    const data = await response.json();
+    
+    // Update status text
+    attentionText.textContent = data.status;
+    
+    // Update status class
+    attentionStatus.className = 'attention-status';
+    if (data.statusType === 'focused') {
+      attentionStatus.classList.add('status-focused');
+    } else if (data.statusType === 'sleeping') {
+      attentionStatus.classList.add('status-sleeping');
+    } else {
+      attentionStatus.classList.add('status-default');
+    }
+    
+    // Handle sleep alert countdown
+    if (data.countdown && data.countdown > 0) {
+      sleepAlert.style.display = 'block';
+      countdownTimer.textContent = data.countdown;
+    } else {
+      sleepAlert.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Error updating attention status:', error);
+    attentionText.textContent = 'Status unavailable';
+    sleepAlert.style.display = 'none';
+  }
+}
+  
+  // Check camera section every second
+  updateCameraSection();
+  setInterval(updateCameraSection, 1000);
+  
+// Update attention status every 500ms
+setInterval(updateAttentionStatus, 500);
+
+// Handle "I'm Awake!" button click
+imAwakeBtn.addEventListener('click', async () => {
+  try {
+    const response = await fetch('http://localhost:8080/cancel_alert', { method: 'POST' });
+    const data = await response.json();
+    
+    if (data.success) {
+      sleepAlert.style.display = 'none';
+      console.log('Sleep alert cancelled');
+    }
+  } catch (error) {
+    console.error('Error cancelling sleep alert:', error);
+  }
+});
 });

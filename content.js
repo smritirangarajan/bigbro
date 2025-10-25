@@ -115,7 +115,13 @@ async function checkWebcamForImageData() {
 
 async function detectFaceWithClaude(imageData) {
   try {
-    const CLAUDE_API_KEY = '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';
+    // Import config
+    const response = await chrome.runtime.sendMessage({ action: 'getConfig' });
+    if (!response || !response.CLAUDE_API_KEY) {
+      console.error('Claude API key not available');
+      return false;
+    }
+    const CLAUDE_API_KEY = response.CLAUDE_API_KEY;
     
     // Remove the data URL prefix
     const base64Image = imageData.split(',')[1];

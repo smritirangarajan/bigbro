@@ -18,7 +18,7 @@ chrome.storage.local.get(['lastStrikeTime']).then(({ lastStrikeTime: stored }) =
   }
 });
 
-// Listen for messages from popup
+// Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'startMonitoring') {
     startMonitoring();
@@ -28,6 +28,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('⏸️ Monitoring paused');
   } else if (message.action === 'resumeMonitoring') {
     console.log('▶️ Monitoring resumed');
+  } else if (message.action === 'getConfig') {
+    // Send config to content script
+    sendResponse({
+      CLAUDE_API_KEY: CLAUDE_API_KEY
+    });
   }
   // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
@@ -210,8 +215,7 @@ async function checkWebcamForUser() {
 
 async function analyzeWebcamWithClaude(imageData) {
   try {
-    const CLAUDE_API_KEY = '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';
-    
+    // CLAUDE_API_KEY is already imported from config.js at the top of the file
     const base64Image = imageData.split(',')[1];
     
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -820,8 +824,7 @@ Be STRICT about task matching:
 
 // Keep the old function structure for the rest of the blocks
 async function initializeLettaAgent_OLD(task) {
-  const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OjEyYTE4OTUyLTNmNGEtNDliNy1hM2IyLTFhM2I0ODNhYzU2NQ==';
-  const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
+  // LETTA_API_KEY and LETTA_PROJECT are already imported from config.js at the top of the file
   
   try {
     console.log('🚀 Initializing Letta agent with task:', task);
