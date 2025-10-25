@@ -1,0 +1,24 @@
+{
+  "name": "cal-hacks-fall25",
+  "version": "1.0.0",
+  "description": "A Chrome browser extension that helps monitor your productivity by tracking if you're staying on task based on the websites you visit.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smritirangarajan/cal-hacks-fall25.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/smritirangarajan/cal-hacks-fall25/issues"
+  },
+  "homepage": "https://github.com/smritirangarajan/cal-hacks-fall25#readme",
+  "dependencies": {
+    "@letta-ai/letta-client": "^0.0.68665"
+  }
+}

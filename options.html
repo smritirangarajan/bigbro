@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Recording Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #444;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 8px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .status-badge.recording {
+      background: #ff4444;
+      color: white;
+    }
+
+    .status-badge.stopped {
+      background: #e0e0e0;
+      color: #666;
+    }
+
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-danger {
+      background: #ff4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #cc0000;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .recording-status {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 16px;
+      border-radius: 4px;
+      margin-top: 16px;
+    }
+
+    .info-box p {
+      color: #1976d2;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📹 Screen Recording</h1>
+    <p class="subtitle">Enable AI-powered productivity monitoring with visual analysis</p>
+
+    <div class="section">
+      <div class="recording-status">
+        <div class="status-badge stopped" id="status-badge">Not Recording</div>
+        <h3 class="section-title">Recording Control</h3>
+        <p>Click below to start screen recording. The AI will analyze your screen to determine if you're on task.</p>
+        <br>
+        <button id="start-recording-btn" class="btn btn-primary">Start Recording</button>
+        <button id="stop-recording-btn" class="btn btn-danger" style="display: none;">Stop Recording</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 class="section-title">How It Works</h3>
+      <ol style="line-height: 2; color: #666;">
+        <li>Click "Start Recording" to begin monitoring</li>
+        <li>Select what you want to record (screen, window, or tab)</li>
+        <li>The AI will analyze your screen every 30 seconds</li>
+        <li>Get strike notifications when you're off-task</li>
+        <li>Stop recording anytime</li>
+      </ol>
+
+      <div class="info-box">
+        <p><strong>Privacy:</strong> Recording happens locally. Visual data is analyzed by AI but not stored permanently. You control when recording starts and stops.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 class="section-title">Recording Stats</h3>
+      <div id="stats-display" style="color: #666;">
+        <p>No recording stats yet. Start recording to see stats.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

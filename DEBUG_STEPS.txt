@@ -1,0 +1,27 @@
+HOW TO DEBUG THE "CHECKING..." ISSUE:
+
+1. Go to chrome://extensions
+2. Click RELOAD on your extension (circular arrow icon)
+3. Click "Inspect views: background page"
+4. Go to Console tab
+5. Look for these logs:
+
+EXPECTED LOGS:
+- 🚀 Background service worker loaded
+- Using Letta agent ID: agent-90ee73f6-e688-470d-977a-7f0e8f31c783
+- 📊 Periodic check triggered... (every 5 seconds)
+- 🔍 checkTask called. isMonitoring: true, currentTask: learn calculus
+- ✅ Checking task status for task: learn calculus
+- 🤖 Trying Letta agent: agent-90ee73f6-e688-470d-977a-7f0e8f31c783
+
+IF YOU SEE ERRORS:
+- Copy the full error message
+- Send it to me
+
+IF YOU DON'T SEE ANY LOGS:
+- The extension might not be loading
+- Try removing and re-adding it
+
+IF YOU SEE "checkTask called" BUT NO AI RESULTS:
+- The API calls are failing
+- Check network tab for failed requests

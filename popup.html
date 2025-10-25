@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Monitor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Task Monitor</h1>
+    
+    <!-- Recording Section - First -->
+    <div class="recording-section">
+      <h3>📹 Screen Recording</h3>
+      <p class="section-description">Click below to start recording. The AI will analyze your screen.</p>
+      <button id="start-recording-btn" class="btn-primary">Start Recording</button>
+      <button id="stop-recording-btn" class="btn-secondary" style="display: none;">Stop Recording</button>
+      <div id="recording-status" class="recording-status-text"></div>
+    </div>
+    
+    <!-- Task Section - Second -->
+    <div class="task-section">
+      <h2>Set Your Task</h2>
+      <textarea id="task-input" placeholder="What task are you working on?"></textarea>
+      <button id="set-task-btn" class="btn-primary">Start Monitoring</button>
+      <button id="stop-task-btn" class="btn-secondary">Stop Monitoring</button>
+    </div>
+    
+    <!-- Current Task Display -->
+    <div class="task-section">
+      <h2>Current Task</h2>
+      <div id="current-task" class="task-display">
+        <p class="no-task">No task set yet</p>
+      </div>
+    </div>
+    
+    <!-- Current Tab Info -->
+    <div class="current-tab-section">
+      <h3>Current Tab</h3>
+      <div id="current-tab-info" class="tab-info">
+        <div class="tab-url" id="current-tab-url">No active tab</div>
+        <div class="tab-status" id="current-tab-status">
+          <span class="status-label">Status:</span>
+          <span class="status-badge" id="productivity-badge">Unknown</span>
+        </div>
+        <div class="countdown" id="strike-countdown"></div>
+      </div>
+    </div>
+    
+    <!-- Stats Section -->
+    <div class="stats-section">
+      <h3>Stats</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Strikes:</span>
+          <span id="strike-count" class="stat-value">0</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Monitoring Status -->
+    <div class="monitoring-status">
+      <div id="monitoring-indicator" class="status-indicator"></div>
+      <span id="monitoring-text">Monitoring: OFF</span>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
