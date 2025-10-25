@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webcam Monitor</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a1a;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    video {
+      width: 320px;
+      height: 240px;
+      border: 2px solid #0f0;
+      border-radius: 8px;
+    }
+    .status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h3>Webcam Monitor</h3>
+  <video id="video" autoplay playsinline></video>
+  <div class="status" id="status">Initializing...</div>
+  
+  <script src="webcam-monitor.js"></script>
+</body>
+</html>

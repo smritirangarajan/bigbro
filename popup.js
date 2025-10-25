@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const taskInput = document.getElementById('task-input');
   const momPhoneInput = document.getElementById('mom-phone-input');
+  const yourPhoneInput = document.getElementById('your-phone-input');
   const setTaskBtn = document.getElementById('set-task-btn');
   const stopTaskBtn = document.getElementById('stop-task-btn');
   const currentTaskDisplay = document.getElementById('current-task');
@@ -10,15 +11,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load current state
   async function loadState() {
-    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'strikes', 'checks', 'momPhoneNumber']);
+    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber']);
     
     if (result.currentTask) {
       currentTaskDisplay.innerHTML = `<p class="task-text">${result.currentTask}</p>`;
     }
     
-    // Load phone number if saved
+    // Load phone numbers if saved
     if (result.momPhoneNumber) {
       momPhoneInput.value = result.momPhoneNumber;
+    }
+    
+    if (result.yourPhoneNumber) {
+      yourPhoneInput.value = result.yourPhoneNumber;
     }
     
     // Show/hide buttons based on monitoring state
@@ -47,16 +52,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const momPhone = momPhoneInput.value.trim();
+    const yourPhone = yourPhoneInput.value.trim();
 
     await chrome.storage.local.set({
       currentTask: task,
       momPhoneNumber: momPhone,
+      yourPhoneNumber: yourPhone,
       isMonitoring: true,
       startTime: Date.now()
     });
 
     taskInput.value = '';
     momPhoneInput.value = '';
+    yourPhoneInput.value = '';
     await loadState();
     
     // Notify background script

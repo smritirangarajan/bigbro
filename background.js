@@ -7,7 +7,8 @@ const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
 const LETTA_AGENT_ID = 'agent-90ee73f6-e688-470d-977a-7f0e8f31c783';
 const VAPI_PRIVATE_KEY = '5d9a54ae-c4ee-44ad-b17f-3aab8f829d7e';
 const VAPI_PHONE_NUMBER_ID = 'a2502e80-e910-4b99-9958-3661de513d41'; // Get this from Vapi dashboard -> Phone Numbers
-const VAPI_ASSISTANT_ID = 'c39bb5dc-e675-4430-97d6-49b9ab6f109c';
+const VAPI_ASSISTANT_ID = 'c39bb5dc-e675-4430-97d6-49b9ab6f109c'; // Mom call (2 strikes)
+const VAPI_AWAY_ASSISTANT_ID = '6bb4ff29-2643-4932-8ea5-122a820d74f4'; // Away call (user away from computer)
 
 let monitoringInterval = null;
 let lettaAgentId = LETTA_AGENT_ID;
@@ -45,8 +46,14 @@ async function startMonitoring() {
   momCalled = false;
   lastStrikeTime = null;
   
+  // Reset away call flag
+  await chrome.storage.local.set({ awayCallMade: false });
+  
   // Use existing Letta agent
   console.log('Using Letta agent ID:', lettaAgentId);
+  
+  // Start webcam detection
+  startWebcamDetection();
   
   // Check more frequently to update status quickly
   monitoringInterval = setInterval(async () => {
@@ -57,6 +64,184 @@ async function startMonitoring() {
   // Initial check
   console.log('🚀 Starting initial check...');
   await checkTask();
+}
+
+let webcamCheckInterval = null;
+let awayCallTimeout = null;
+let userPresentCount = 0;
+let webcamTabId = null;
+
+function startWebcamDetection() {
+  console.log('📹 Starting webcam detection...');
+  
+  // Create a persistent tab for webcam monitoring
+  createWebcamTab();
+}
+
+async function createWebcamTab() {
+  try {
+    console.log('📹 Creating webcam tab...');
+    
+    // Create a new tab for webcam monitoring
+    const tab = await new Promise((resolve, reject) => {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('webcam-monitor.html'),
+        active: false // Hidden tab
+      }, (tab) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(tab);
+        }
+      });
+    });
+    
+    webcamTabId = tab.id;
+    console.log('📹 Webcam tab created with ID:', webcamTabId);
+    
+    // Wait a bit for the tab to load and request camera permission
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Start checking every minute
+    webcamCheckInterval = setInterval(async () => {
+      console.log('⏰ Webcam check interval triggered...');
+      await checkWebcamForUser();
+    }, 60000); // 1 minute
+    
+    // Initial check after setup
+    setTimeout(() => {
+      console.log('🚀 Starting initial webcam check...');
+      checkWebcamForUser();
+    }, 5000);
+  } catch (error) {
+    console.error('Error creating webcam tab:', error);
+  }
+}
+
+async function checkWebcamForUser() {
+  try {
+    const { isMonitoring, yourPhoneNumber } = await chrome.storage.local.get(['isMonitoring', 'yourPhoneNumber']);
+    
+    if (!isMonitoring) return;
+    
+    if (!webcamTabId) {
+      console.log('⚠️ Webcam tab not initialized yet');
+      return;
+    }
+    
+    console.log('📹 Checking webcam for user presence...');
+    
+    // Send message to webcam tab to capture and analyze frame
+    const hasUser = await new Promise((resolve) => {
+      chrome.tabs.sendMessage(webcamTabId, { action: 'checkFace' }, async (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error sending message to webcam tab:', chrome.runtime.lastError);
+          resolve(false);
+          return;
+        }
+        
+        if (!response || !response.imageData) {
+          console.log('❌ No image data from webcam tab');
+          resolve(false);
+          return;
+        }
+        
+        console.log('📹 Received image data, analyzing with Claude...');
+        
+        // Analyze with Claude vision
+        const hasUser = await analyzeWebcamWithClaude(response.imageData);
+        resolve(hasUser);
+      });
+    });
+    
+    if (hasUser) {
+      console.log('✅ User detected in front of computer');
+      userPresentCount++;
+      
+      // Cancel any pending call
+      if (awayCallTimeout) {
+        console.log('✅ User is back, canceling away call');
+        clearTimeout(awayCallTimeout);
+        awayCallTimeout = null;
+        await chrome.storage.local.set({ awayCallMade: false });
+      }
+    } else {
+      console.log('⚠️ No user detected in front of computer');
+      userPresentCount = 0;
+      
+      // Start timer for calling user if not already started
+      if (!awayCallTimeout) {
+        console.log('⏱️ Starting 30-second timer to call user...');
+        
+        awayCallTimeout = setTimeout(async () => {
+          console.log('📞 User has been away for 30 seconds, calling them...');
+          
+          // Check if we've already called
+          const { awayCallMade } = await chrome.storage.local.get(['awayCallMade']);
+          
+          if (!awayCallMade && yourPhoneNumber) {
+            console.log('📞 Calling user because they are away from computer');
+            await chrome.storage.local.set({ awayCallMade: true });
+            await callUserAway();
+          } else {
+            console.log('📞 Already called or no phone number set');
+          }
+        }, 30000); // 30 seconds
+      }
+    }
+  } catch (error) {
+    console.error('Error checking webcam:', error);
+  }
+}
+
+async function analyzeWebcamWithClaude(imageData) {
+  try {
+    const CLAUDE_API_KEY = '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';
+    
+    const base64Image = imageData.split(',')[1];
+    
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/jpeg',
+                data: base64Image
+              }
+            },
+            {
+              type: 'text',
+              text: 'Look at this webcam image. Carefully examine if there is a clear, visible human face (not just hair, clothing, or body parts - but an actual face with eyes, nose, mouth visible). Respond with only YES if you see a clear face, or NO if there is no face or the face is not clearly visible.'
+            }
+          ]
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.content && data.content[0] && data.content[0].text) {
+      const answer = data.content[0].text.trim().toUpperCase();
+      return answer.includes('YES');
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error calling Claude vision:', error);
+    return false;
+  }
 }
 
 async function stopMonitoring() {
@@ -75,12 +260,38 @@ async function stopMonitoring() {
     pendingCheck = null;
   }
   
+  // Stop webcam detection
+  if (webcamCheckInterval) {
+    clearInterval(webcamCheckInterval);
+    webcamCheckInterval = null;
+  }
+  
+  // Clear away call timeout
+  if (awayCallTimeout) {
+    clearTimeout(awayCallTimeout);
+    awayCallTimeout = null;
+  }
+  
+  // Close the webcam tab
+  if (webcamTabId) {
+    console.log('📹 Closing webcam tab...');
+    try {
+      chrome.tabs.remove(webcamTabId).catch(() => {
+        // Tab might already be closed
+      });
+      webcamTabId = null;
+    } catch (error) {
+      console.log('Could not close webcam tab:', error);
+    }
+  }
+  
   // Reset stats in storage
   await chrome.storage.local.set({
     strikes: 0,
     checks: 0,
     currentTabProductivity: 'Unknown',
-    tabStartTime: null
+    tabStartTime: null,
+    awayCallMade: false
   });
   
   console.log('Stopped task monitoring and reset all stats');
@@ -246,26 +457,9 @@ async function checkTask() {
       
       console.log('User is off task on:', hostname);
       
-      // Show popup alert
-      console.log('⚠️ STRIKE ADDED! You\'re not on a productive website.');
-      console.log(`You've been on ${hostname} for 30+ seconds. Total strikes: ${newStrikes}`);
-      
-      // Try to show alert in active tab
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab) {
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'showStrikeAlert',
-            hostname: hostname,
-            strikes: newStrikes
-          }).catch(() => {
-            // If content script not loaded, that's ok
-            console.log('Content script not available for alert');
-          });
-        }
-      } catch (error) {
-        console.log('Could not show alert:', error);
-      }
+      // Log strike (no popup)
+      console.log('⚠️ STRIKE ADDED! User is not on a productive website.');
+      console.log(`User has been on ${hostname} for 30+ seconds. Total strikes: ${newStrikes}`);
       
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
       console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
@@ -329,12 +523,16 @@ Determine if the user appears to be on task or off task based on:
 3. Whether the content matches their STATED TASK
 
 CRITICAL: The user is ONLY on task if what they're doing matches their stated task.
-- If they said "answer emails" but they're on Khan Academy doing math → OFF_TASK
-- If they said "learn Java" and they're on Khan Academy learning Java → ON_TASK
-- If they said "answer emails" and they're on Gmail → ON_TASK
-- If they said "learn math" and they're on Instagram → OFF_TASK
 
-The content must DIRECTLY relate to their stated task. Related educational content counts as on task ONLY if it matches the task topic.
+Key examples:
+- Task "answer emails" or "send emails" or "reply to emails" + Gmail → ON_TASK
+- Task "learn Java" and Khan Academy showing Java → ON_TASK
+- Task "answer emails" but Khan Academy showing math → OFF_TASK
+- Task "learn math" but Instagram → OFF_TASK
+
+IMPORTANT: When the task involves emails/messages, being on Gmail/Outlook/Yahoo Mail is ON_TASK even if you can't see the exact content. The website context matters.
+
+The content must DIRECTLY relate to their stated task. Be flexible with interpretation - if task says "emails" and they're on an email client, that's ON_TASK.
 
 Respond with only "ON_TASK" or "OFF_TASK".`
       }
@@ -409,9 +607,13 @@ Their current browser tab shows:
 Determine if the user appears to be on task or off task based on their stated task.
 
 CRITICAL: The user is ONLY on task if what they're doing matches their stated task.
-- If they said "answer emails" but they're on Khan Academy doing math → OFF_TASK
-- If they said "learn Java" and they're on Khan Academy learning Java → ON_TASK
-- If they said "answer emails" and they're on Gmail → ON_TASK
+
+Key examples:
+- Task "answer emails" or "send emails" or "reply to emails" + Gmail → ON_TASK
+- Task "learn Java" and Khan Academy showing Java → ON_TASK
+- Task "answer emails" but Khan Academy showing math → OFF_TASK
+
+IMPORTANT: When the task involves emails/messages, being on Gmail/Outlook/Yahoo Mail is ON_TASK even if you can't see the exact content. The website context matters.
 - If they said "learn math" and they're on Instagram → OFF_TASK
 
 The content must DIRECTLY relate to their stated task.
@@ -832,6 +1034,60 @@ async function callMom(currentTask) {
     }
   } catch (error) {
     console.error('❌ Error calling mom:', error);
+    console.error('❌ Error stack:', error.stack);
+  }
+}
+
+// Vapi function to call user when they are away from computer
+async function callUserAway() {
+  try {
+    
+    const { yourPhoneNumber } = await chrome.storage.local.get(['yourPhoneNumber']);
+    console.log('📞 Retrieved yourPhoneNumber from storage:', yourPhoneNumber);
+    
+    if (!yourPhoneNumber) {
+      console.log('❌ No your phone number set, cannot call');
+      return;
+    }
+    
+    // Add country code if not present
+    let phoneNumber = yourPhoneNumber.trim();
+    if (!phoneNumber.startsWith('+')) {
+      // Assume US if no country code provided
+      phoneNumber = '+1' + phoneNumber.replace(/[^0-9]/g, '');
+    }
+    
+    console.log('📞 Calling user because they are away at:', phoneNumber);
+    
+    const requestBody = {
+      assistantId: VAPI_AWAY_ASSISTANT_ID,
+      phoneNumberId: VAPI_PHONE_NUMBER_ID,
+      customer: {
+        number: phoneNumber
+      }
+    };
+    console.log('📞 Request body:', JSON.stringify(requestBody));
+    
+    const response = await fetch('https://api.vapi.ai/call', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${VAPI_PRIVATE_KEY}`,
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    console.log('📞 Response status:', response.status);
+    
+    if (response.ok) {
+      const responseData = await response.json();
+      console.log('✅ Away call initiated successfully:', responseData);
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Failed to call user. Status:', response.status, 'Error:', errorText);
+    }
+  } catch (error) {
+    console.error('❌ Error calling user for being away:', error);
     console.error('❌ Error stack:', error.stack);
   }
 }
