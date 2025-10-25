@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const taskInput = document.getElementById('task-input');
+  const momPhoneInput = document.getElementById('mom-phone-input');
   const setTaskBtn = document.getElementById('set-task-btn');
   const stopTaskBtn = document.getElementById('stop-task-btn');
   const currentTaskDisplay = document.getElementById('current-task');
@@ -9,18 +10,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load current state
   async function loadState() {
-    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'strikes', 'checks']);
+    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'strikes', 'checks', 'momPhoneNumber']);
     
     if (result.currentTask) {
       currentTaskDisplay.innerHTML = `<p class="task-text">${result.currentTask}</p>`;
     }
     
+    // Load phone number if saved
+    if (result.momPhoneNumber) {
+      momPhoneInput.value = result.momPhoneNumber;
+    }
+    
+    // Show/hide buttons based on monitoring state
     if (result.isMonitoring) {
       monitoringIndicator.classList.add('active');
       monitoringText.textContent = 'Monitoring: ON';
+      setTaskBtn.style.display = 'none';
+      stopTaskBtn.style.display = 'inline-block';
     } else {
       monitoringIndicator.classList.remove('active');
       monitoringText.textContent = 'Monitoring: OFF';
+      setTaskBtn.style.display = 'inline-block';
+      stopTaskBtn.style.display = 'none';
     }
     
     const strikes = result.strikes || 0;
@@ -35,13 +46,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const momPhone = momPhoneInput.value.trim();
+
     await chrome.storage.local.set({
       currentTask: task,
+      momPhoneNumber: momPhone,
       isMonitoring: true,
       startTime: Date.now()
     });
 
     taskInput.value = '';
+    momPhoneInput.value = '';
     await loadState();
     
     // Notify background script
@@ -51,8 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Stop monitoring
   stopTaskBtn.addEventListener('click', async () => {
     await chrome.storage.local.set({ 
-      isMonitoring: false
-      // Don't reset stats - just pause monitoring
+      isMonitoring: false,
+      strikes: 0,
+      checks: 0,
+      currentTabProductivity: 'Unknown',
+      tabStartTime: null
     });
     await loadState();
     

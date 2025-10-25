@@ -5,12 +5,17 @@ const GEMINI_API_KEY = 'AIzaSyAyL9mtisO5d6eFS0j260rsZaxfbYavWSE';
 const LETTA_API_KEY = 'sk-let-OTY4NzFmYjQtYTRkNi00ODEwLTg3ZTktMjA3YzIxYjkwODY2OjEyYTE4OTUyLTNmNGEtNDliNy1hM2IyLTFhM2I0ODNhYzU2NQ==';
 const LETTA_PROJECT = '0504569d-4b34-4dc1-92ad-deec931ff616';
 const LETTA_AGENT_ID = 'agent-90ee73f6-e688-470d-977a-7f0e8f31c783';
+const VAPI_PRIVATE_KEY = '5d9a54ae-c4ee-44ad-b17f-3aab8f829d7e';
+const VAPI_PHONE_NUMBER_ID = 'a2502e80-e910-4b99-9958-3661de513d41'; // Get this from Vapi dashboard -> Phone Numbers
+const VAPI_ASSISTANT_ID = 'c39bb5dc-e675-4430-97d6-49b9ab6f109c';
 
 let monitoringInterval = null;
 let lettaAgentId = LETTA_AGENT_ID;
 let currentTabUrl = null;
 let tabStartTime = null;
 let pendingCheck = null;
+let momCalled = false;
+let lastStrikeTime = null;
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -18,6 +23,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     startMonitoring();
   } else if (message.action === 'stopMonitoring') {
     stopMonitoring();
+  }
   // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
 });
@@ -26,6 +32,11 @@ async function startMonitoring() {
   if (monitoringInterval) return;
   
   console.log('Starting task monitoring');
+  
+  // TEST: Call mom immediately to verify it works
+  console.log('🧪 TEST: Calling mom immediately to test...');
+  const testTask = await chrome.storage.local.get(['currentTask']);
+  await callMom(testTask.currentTask || 'test task');
   
   // Reset strikes and checks to 0 when starting
   await chrome.storage.local.set({
@@ -36,6 +47,8 @@ async function startMonitoring() {
   // Reset tab tracking
   currentTabUrl = null;
   tabStartTime = null;
+  momCalled = false;
+  lastStrikeTime = null;
   
   // Use existing Letta agent
   console.log('Using Letta agent ID:', lettaAgentId);
@@ -51,12 +64,31 @@ async function startMonitoring() {
   await checkTask();
 }
 
-function stopMonitoring() {
+async function stopMonitoring() {
   if (monitoringInterval) {
     clearInterval(monitoringInterval);
     monitoringInterval = null;
   }
-  console.log('Stopped task monitoring');
+  
+  // Reset tracking variables
+  currentTabUrl = null;
+  tabStartTime = null;
+  
+  // Clear any pending checks
+  if (pendingCheck) {
+    clearTimeout(pendingCheck);
+    pendingCheck = null;
+  }
+  
+  // Reset stats in storage
+  await chrome.storage.local.set({
+    strikes: 0,
+    checks: 0,
+    currentTabProductivity: 'Unknown',
+    tabStartTime: null
+  });
+  
+  console.log('Stopped task monitoring and reset all stats');
 }
 
 async function checkTask() {
@@ -88,6 +120,7 @@ async function checkTask() {
       console.log('Tab changed, resetting timer');
       currentTabUrl = tab.url;
       tabStartTime = Date.now();
+      lastStrikeTime = null; // Reset cooldown on tab change
       
       // Store tab info
       await chrome.storage.local.set({
@@ -174,8 +207,23 @@ async function checkTask() {
     // Calculate time spent on current tab (recalculate since we used it earlier)
     const timeOnTabNow = Date.now() - (tabStartTime || Date.now());
     
-    // Only add strike if user has been on site for 30+ seconds
-    const shouldAddStrike = !isOnTask && timeOnTabNow >= 30000;
+    // Check if 30 seconds have passed since last strike
+    const timeSinceLastStrike = lastStrikeTime ? Date.now() - lastStrikeTime : Infinity;
+    const canAddStrike = timeSinceLastStrike >= 30000;
+    
+    console.log('⏰ Cooldown check - Last strike:', lastStrikeTime ? new Date(lastStrikeTime).toLocaleTimeString() : 'never', 'Time since:', Math.floor(timeSinceLastStrike / 1000), 's', 'Can add:', canAddStrike);
+    console.log('🔍 DEBUG shouldAddStrike calculation:');
+    console.log('  - isOnTask:', isOnTask);
+    console.log('  - !isOnTask:', !isOnTask);
+    console.log('  - timeOnTabNow:', timeOnTabNow, 'ms (>= 30000?', timeOnTabNow >= 30000, ')');
+    console.log('  - canAddStrike:', canAddStrike);
+    
+    // Only add strike if user has been on site for 30+ seconds AND it's been 30+ seconds since last strike
+    const shouldAddStrike = !isOnTask && timeOnTabNow >= 30000 && canAddStrike;
+    
+    if (!isOnTask && timeOnTabNow >= 30000 && !canAddStrike) {
+      console.log('⏸️ Cooldown active - skipping strike, must wait', Math.ceil((30000 - timeSinceLastStrike) / 1000), 'more seconds');
+    }
     
     // Update stats (isOnTask is now guaranteed to be a boolean)
     const { strikes, checks } = await chrome.storage.local.get(['strikes', 'checks']);
@@ -188,7 +236,22 @@ async function checkTask() {
       checks: newChecks
     });
     
+    console.log('🔍 DEBUG: shouldAddStrike:', shouldAddStrike, 'newStrikes:', newStrikes);
+    
+    // Check if we should call mom (even if we're not adding a new strike)
+    // We call mom when strikes reach 2, regardless of cooldown
+    if (newStrikes >= 2 && !momCalled && !isOnTask && timeOnTabNow >= 30000) {
+      console.log('📞 2+ strikes detected and user is unproductive! Calling mom...');
+      console.log('📞 momCalled status before call:', momCalled);
+      momCalled = true; // Set this FIRST to prevent duplicate calls
+      console.log('📞 Set momCalled to true, now calling...');
+      await callMom(currentTask);
+      console.log('📞 Call completed');
+    }
+    
     if (shouldAddStrike) {
+      console.log('✅ Entering shouldAddStrike block');
+      
       // Get hostname safely
       let hostname = 'this website';
       try {
@@ -221,6 +284,25 @@ async function checkTask() {
       }
       
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
+      console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
+      
+      // Record when we added this strike
+      lastStrikeTime = Date.now();
+      console.log('⏰ Last strike time updated, must wait 30 seconds for next strike');
+      
+      // Call mom if we hit 2 strikes and haven't called yet
+      console.log('📞 Checking if should call mom... newStrikes:', newStrikes, '>= 2?', newStrikes >= 2, 'momCalled:', momCalled, '!momCalled:', !momCalled);
+      
+      if (newStrikes >= 2 && !momCalled) {
+        console.log('📞 2 strikes reached! Calling mom...');
+        console.log('📞 momCalled status before call:', momCalled);
+        momCalled = true; // Set this FIRST to prevent duplicate calls
+        console.log('📞 Set momCalled to true, now calling...');
+        await callMom(currentTask);
+        console.log('📞 Call completed');
+      } else {
+        console.log('📞 Skipping call - newStrikes:', newStrikes, '>= 2?', newStrikes >= 2, 'momCalled:', momCalled);
+      }
     } else {
       console.log('✅ User is on task!');
     }
@@ -715,6 +797,61 @@ Respond with ONLY "PRODUCTIVE" or "UNPRODUCTIVE" - no other text.`,
 
 // Recording functions removed - screenshots are captured automatically during monitoring
 
+// Vapi function to call mom when user hits 2 strikes
+async function callMom(currentTask) {
+  try {
+    
+    const { momPhoneNumber } = await chrome.storage.local.get(['momPhoneNumber']);
+    console.log('📞 Retrieved momPhoneNumber from storage:', momPhoneNumber);
+    
+    if (!momPhoneNumber) {
+      console.log('❌ No mom phone number set, cannot call');
+      return;
+    }
+    
+    // Add country code if not present
+    let phoneNumber = momPhoneNumber.trim();
+    if (!phoneNumber.startsWith('+')) {
+      // Assume US if no country code provided
+      phoneNumber = '+1' + phoneNumber.replace(/[^0-9]/g, '');
+    }
+    
+    console.log('📞 Calling mom at:', phoneNumber);
+    console.log('📞 API endpoint: https://api.vapi.ai/call');
+    
+    const requestBody = {
+      assistantId: VAPI_ASSISTANT_ID,
+      phoneNumberId: VAPI_PHONE_NUMBER_ID,
+      customer: {
+        number: phoneNumber
+      }
+    };
+    console.log('📞 Request body:', JSON.stringify(requestBody));
+    
+    const response = await fetch('https://api.vapi.ai/call', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${VAPI_PRIVATE_KEY}`,
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    console.log('📞 Response status:', response.status);
+    
+    if (response.ok) {
+      const responseData = await response.json();
+      console.log('✅ Mom call initiated successfully:', responseData);
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Failed to call mom. Status:', response.status, 'Error:', errorText);
+    }
+  } catch (error) {
+    console.error('❌ Error calling mom:', error);
+    console.error('❌ Error stack:', error.stack);
+  }
+}
+
 // Listen for installation
 chrome.runtime.onInstalled.addListener(() => {
   console.log('✅ Extension installed, initializing storage...');
@@ -729,7 +866,9 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Log when service worker starts
 console.log('🚀 Background service worker loaded');
+console.log('✅ background.js is running!');
 console.log('Using Letta agent ID:', lettaAgentId);
+console.log('Current time:', new Date().toLocaleTimeString());
 
 // Check if monitoring is already active on startup
 chrome.storage.local.get(['isMonitoring'], (result) => {
