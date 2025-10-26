@@ -10,6 +10,14 @@ let tabStartTime = null;
 let pendingCheck = null;
 let momCalled = false;
 let lastStrikeTime = null;
+
+// Load momCalled from storage on service worker start
+chrome.storage.local.get(['momCalled']).then(({ momCalled: stored }) => {
+  if (stored !== undefined) {
+    momCalled = stored;
+    console.log('✅ Restored momCalled from storage:', momCalled);
+  }
+});
 let pausedAt = null;
 let totalPausedTime = 0;
 
@@ -87,7 +95,8 @@ async function startMonitoring() {
   // Reset strikes and checks to 0 when starting
   await chrome.storage.local.set({
     strikes: 0,
-    checks: 0
+    checks: 0,
+    momCalled: false
   });
   
   // Reset tab tracking
@@ -612,6 +621,7 @@ async function checkTask() {
         console.log('📞 2+ strikes reached! Calling mom...');
         console.log('📞 momCalled status before call:', momCalled);
         momCalled = true; // Set this FIRST to prevent duplicate calls
+        await chrome.storage.local.set({ momCalled: true }); // Persist to storage
         console.log('📞 Set momCalled to true, now calling...');
         
         // Reset display strikes to 0 but keep tracking in backend
@@ -620,7 +630,7 @@ async function checkTask() {
         await callMom(currentTask);
         console.log('📞 Call completed');
       } else {
-        console.log('📞 Skipping call - newStrikes:', newStrikes, '>= 3?', newStrikes >= 3, 'momCalled:', momCalled);
+        console.log('📞 Skipping call - effectiveStrikeCount:', effectiveStrikeCount, '>= 2?', effectiveStrikeCount >= 2, 'momCalled:', momCalled);
       }
     } else {
       console.log('✅ User is on task!');
