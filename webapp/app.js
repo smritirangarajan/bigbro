@@ -125,13 +125,29 @@ async function loadDashboard() {
   
   const { data } = await supabase
     .from('user_settings')
-    .select('total_strikes, total_calls, mom_phone, your_phone')
+    .select('total_strikes, total_calls, mom_phone, your_phone, quiz_accuracy, total_quiz_questions, correct_quiz_answers')
     .eq('user_id', currentUser.id)
     .single();
   
   if (data) {
     document.getElementById('total-strikes').textContent = data.total_strikes || 0;
     document.getElementById('total-calls').textContent = data.total_calls || 0;
+    
+    // Quiz stats
+    const totalQuizQuestions = data.total_quiz_questions || 0;
+    const correctAnswers = data.correct_quiz_answers || 0;
+    const quizAccuracy = totalQuizQuestions > 0 
+      ? ((correctAnswers / totalQuizQuestions) * 100).toFixed(1)
+      : 0;
+    
+    // Update quiz stats display if elements exist
+    const quizAccuracyEl = document.getElementById('quiz-accuracy');
+    const quizQuestionsEl = document.getElementById('total-quiz-questions');
+    const quizCorrectEl = document.getElementById('correct-quiz-answers');
+    
+    if (quizAccuracyEl) quizAccuracyEl.textContent = `${quizAccuracy}%`;
+    if (quizQuestionsEl) quizQuestionsEl.textContent = totalQuizQuestions;
+    if (quizCorrectEl) quizCorrectEl.textContent = correctAnswers;
     
     // Load phone numbers into settings
     document.getElementById('mom-phone').value = data.mom_phone || '';
@@ -335,3 +351,144 @@ supabase.auth.onAuthStateChange((event, session) => {
     showAuth();
   }
 }); 
+
+// Check if quiz mode is in URL
+if (window.location.search.includes('quiz')) {
+  console.log('Quiz mode detected in URL');
+  
+  // Wait for page to load, then check chrome.storage
+  window.addEventListener('load', async () => {
+    // Access chrome.storage from web page using chrome.runtime
+    if (chrome && chrome.runtime) {
+      try {
+        const extensionId = await getExtensionId();
+        console.log('Extension ID:', extensionId);
+        
+        // Get quiz questions from extension storage
+        const message = { action: 'getQuizQuestions' };
+        
+        chrome.runtime.sendMessage(extensionId, message, (response) => {
+          if (response && response.questions) {
+            console.log('Got quiz questions:', response.questions);
+            displayQuiz(response.questions);
+          } else {
+            console.log('No quiz questions found');
+          }
+        });
+      } catch (error) {
+        console.error('Error getting quiz:', error);
+      }
+    }
+  });
+}
+
+function getExtensionId() {
+  return new Promise((resolve) => {
+    // Try to find the extension ID
+    chrome.management.getAll((extensions) => {
+      const extension = extensions.find(ext => ext.name === 'BigBro');
+      if (extension) {
+        resolve(extension.id);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+function displayQuiz(questions) {
+  const quizSection = document.getElementById('quiz-section');
+  const quizContent = document.getElementById('quiz-content');
+  
+  if (!quizSection || !quizContent) return;
+  
+  // Show quiz section
+  quizSection.style.display = 'block';
+  
+  // Create quiz HTML
+  let quizHTML = '<button id="start-quiz-btn" class="btn btn-primary">Start Quiz</button>';
+  quizHTML += '<div id="quiz-questions"></div>';
+  quizContent.innerHTML = quizHTML;
+  
+  document.getElementById('start-quiz-btn').addEventListener('click', () => {
+    startQuiz(questions);
+  });
+}
+
+let currentQuestionIndex = 0;
+
+function startQuiz(questions) {
+  document.getElementById('start-quiz-btn').style.display = 'none';
+  showQuestion(questions, 0);
+}
+
+function showQuestion(questions, index) {
+  if (index >= questions.length) {
+    // Quiz complete
+    document.getElementById('quiz-questions').innerHTML = '<h3>Quiz Complete!</h3>';
+    return;
+  }
+  
+  const question = questions[index];
+  const questionDiv = document.createElement('div');
+  questionDiv.className = 'question-card';
+  
+  let questionHTML = `<h3>Question ${index + 1}: ${question.question}</h3>`;
+  
+  if (question.type === 'multiple_choice') {
+    question.options.forEach((opt, i) => {
+      const letter = String.fromCharCode(65 + i);
+      questionHTML += `<button class="answer-btn" data-answer="${letter}">${letter}. ${opt}</button>`;
+    });
+  } else {
+    questionHTML += '<button class="answer-btn" data-answer="true">True</button>';
+    questionHTML += '<button class="answer-btn" data-answer="false">False</button>';
+  }
+  
+  questionHTML += `<p id="timer-${index}">Time: 30s</p>`;
+  
+  questionDiv.innerHTML = questionHTML;
+  document.getElementById('quiz-questions').appendChild(questionDiv);
+  
+  // Start timer
+  let timeLeft = 30;
+  const timerInterval = setInterval(() => {
+    timeLeft--;
+    const timerEl = document.getElementById(`timer-${index}`);
+    if (timerEl) {
+      timerEl.textContent = `Time: ${timeLeft}s`;
+    }
+    
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      // Time's up, show result
+      showResult(questions, index, null);
+      setTimeout(() => showQuestion(questions, index + 1), 2000);
+    }
+  }, 1000);
+  
+  // Add click handlers
+  const answerBtns = questionDiv.querySelectorAll('.answer-btn');
+  answerBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      const userAnswer = btn.dataset.answer;
+      showResult(questions, index, userAnswer);
+      
+      // Move to next question after 2 seconds
+      setTimeout(() => showQuestion(questions, index + 1), 2000);
+    });
+  });
+}
+
+function showResult(questions, index, userAnswer) {
+  const question = questions[index];
+  const isCorrect = userAnswer && userAnswer.toUpperCase() === question.correct.toUpperCase();
+  
+  const resultDiv = document.createElement('div');
+  resultDiv.className = isCorrect ? 'result-correct' : 'result-incorrect';
+  resultDiv.textContent = isCorrect ? '✅ CORRECT!' : `❌ INCORRECT. Correct answer: ${question.correct}`;
+  
+  const questionCard = document.querySelectorAll('.question-card')[index];
+  questionCard.appendChild(resultDiv);
+} 
