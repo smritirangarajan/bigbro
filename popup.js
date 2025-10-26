@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           countdownDiv.className = 'countdown';
         } else if (currentTabProductivity === 'Unproductive' && adjustedTabStartTime) {
           const elapsed = Math.floor((Date.now() - adjustedTabStartTime) / 1000);
-          const remaining = Math.max(0, 30 - elapsed);
+          const remaining = Math.max(0, 10 - elapsed);
           
           if (remaining > 0) {
             countdownDiv.textContent = `Strike in: ${remaining}s`;
