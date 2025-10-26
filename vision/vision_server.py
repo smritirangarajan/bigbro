@@ -214,30 +214,46 @@ def play_audio_alert(audio_data):
         os.system("afplay /System/Library/Sounds/Alarm.aiff" if os.name == "posix" else "echo \a")
 
 def get_user_phone_from_supabase():
-    """Get the user's phone number from Supabase."""
+    """Get the user's phone number from Supabase for the active session."""
     try:
         import requests
         
-        url = f"{SUPABASE_URL}/rest/v1/user_settings?select=your_phone&your_phone=not.is.null&limit=1"
+        # First, get the user_id from active_sessions table
+        sessions_url = f"{SUPABASE_URL}/rest/v1/active_sessions?select=user_id&is_active=eq.true&limit=1"
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
         }
         
-        response = requests.get(url, headers=headers, timeout=5)
-        print(f"🔍 Supabase response: {response.status_code}")
+        sessions_response = requests.get(sessions_url, headers=headers, timeout=5)
+        print(f"🔍 Active sessions query response: {sessions_response.status_code}")
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"📊 Users found: {len(data)}")
-            if data:
-                phone_number = data[0].get('your_phone', '')
-                print(f"📞 Retrieved user phone number: {phone_number}")
-                return phone_number
+        if sessions_response.status_code == 200:
+            sessions_data = sessions_response.json()
+            print(f"📊 Active sessions found: {len(sessions_data)}")
+            if sessions_data and len(sessions_data) > 0:
+                user_id = sessions_data[0].get('user_id')
+                print(f"👤 Found active user_id: {user_id}")
+                
+                # Now get the phone number for this specific user
+                phone_url = f"{SUPABASE_URL}/rest/v1/user_settings?select=your_phone&user_id=eq.{user_id}&limit=1"
+                phone_response = requests.get(phone_url, headers=headers, timeout=5)
+                
+                if phone_response.status_code == 200:
+                    phone_data = phone_response.json()
+                    print(f"📊 Phone data found: {len(phone_data)}")
+                    if phone_data and len(phone_data) > 0:
+                        phone_number = phone_data[0].get('your_phone', '')
+                        print(f"📞 Retrieved user phone number: {phone_number}")
+                        return phone_number
+                    else:
+                        print("No phone number found for this user")
+                else:
+                    print(f"Phone query failed: {phone_response.text}")
             else:
-                print("No users with phone numbers found")
+                print("No active sessions found")
         else:
-            print(f"Supabase query failed: {response.text}")
+            print(f"Sessions query failed: {sessions_response.text}")
         
         return None
         
