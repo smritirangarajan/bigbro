@@ -34,7 +34,7 @@ frame_queue = deque(maxlen=1)
 analysis_thread = None
 
 # Load config from root .env file
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Fish Audio API key and models
 FISH_API_KEY = os.getenv("FISH_LABS_API_KEY", "")
