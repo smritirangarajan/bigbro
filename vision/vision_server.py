@@ -80,7 +80,7 @@ absence_alert_triggered = False
 absence_countdown = None
 
 looking_away_start_time = None
-LOOKING_AWAY_THRESHOLD = 5
+LOOKING_AWAY_THRESHOLD = 10
 looking_away_strike_triggered = False
 looking_away_countdown = None
 

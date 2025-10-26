@@ -439,7 +439,7 @@ async function checkTask() {
     
     // Always check productivity status immediately
     // Only delay the strike, not the status check
-    if (timeOnTab < 30000) {
+    if (timeOnTab < 10000) {
       console.log(`Only been on tab for ${Math.floor(timeOnTab/1000)}s, status will be checked but strike delayed...`);
       
       // Clear any existing pending check
@@ -447,8 +447,8 @@ async function checkTask() {
         clearTimeout(pendingCheck);
       }
       
-      // Schedule strike check for when we hit 30 seconds
-      const timeRemaining = 30000 - timeOnTab;
+      // Schedule strike check for when we hit 10 seconds
+      const timeRemaining = 10000 - timeOnTab;
       pendingCheck = setTimeout(() => {
         checkTask();
       }, timeRemaining);
@@ -506,22 +506,22 @@ async function checkTask() {
     const realTimeOnTabNow = Date.now() - (tabStartTime || Date.now());
     const timeOnTabNow = realTimeOnTabNow - totalPausedTime;
     
-    // Check if 30 seconds have passed since last strike
+    // Check if 10 seconds have passed since last strike
     const timeSinceLastStrike = lastStrikeTime ? Date.now() - lastStrikeTime : Infinity;
-    const canAddStrike = timeSinceLastStrike >= 30000;
+    const canAddStrike = timeSinceLastStrike >= 10000;
     
     console.log('⏰ Cooldown check - Last strike:', lastStrikeTime ? new Date(lastStrikeTime).toLocaleTimeString() : 'never', 'Time since:', Math.floor(timeSinceLastStrike / 1000), 's', 'Can add:', canAddStrike);
     console.log('🔍 DEBUG shouldAddStrike calculation:');
     console.log('  - isOnTask:', isOnTask);
     console.log('  - !isOnTask:', !isOnTask);
-    console.log('  - timeOnTabNow:', timeOnTabNow, 'ms (>= 30000?', timeOnTabNow >= 30000, ')');
+    console.log('  - timeOnTabNow:', timeOnTabNow, 'ms (>= 10000?', timeOnTabNow >= 10000, ')');
     console.log('  - canAddStrike:', canAddStrike);
     
-    // Only add strike if user has been on site for 30+ seconds AND it's been 30+ seconds since last strike
-    const shouldAddStrike = !isOnTask && timeOnTabNow >= 30000 && canAddStrike;
+    // Only add strike if user has been on site for 10+ seconds AND it's been 10+ seconds since last strike
+    const shouldAddStrike = !isOnTask && timeOnTabNow >= 10000 && canAddStrike;
     
-    if (!isOnTask && timeOnTabNow >= 30000 && !canAddStrike) {
-      console.log('⏸️ Cooldown active - skipping strike, must wait', Math.ceil((30000 - timeSinceLastStrike) / 1000), 'more seconds');
+    if (!isOnTask && timeOnTabNow >= 10000 && !canAddStrike) {
+      console.log('⏸️ Cooldown active - skipping strike, must wait', Math.ceil((10000 - timeSinceLastStrike) / 1000), 'more seconds');
     }
     
     // If we should add a strike, update lastStrikeTime FIRST to prevent duplicates
@@ -529,7 +529,7 @@ async function checkTask() {
       lastStrikeTime = Date.now();
       // Save to storage so it persists across service worker restarts
       await chrome.storage.local.set({ lastStrikeTime: lastStrikeTime });
-      console.log('⏰ Last strike time updated (before adding strike), must wait 30 seconds for next strike');
+      console.log('⏰ Last strike time updated (before adding strike), must wait 10 seconds for next strike');
     }
     
     // Update stats (isOnTask is now guaranteed to be a boolean)
@@ -560,7 +560,7 @@ async function checkTask() {
       
       // Log strike (no popup)
       console.log('⚠️ STRIKE ADDED! User is not on a productive website.');
-      console.log(`User has been on ${hostname} for 30+ seconds. Total strikes: ${newStrikes}`);
+      console.log(`User has been on ${hostname} for 10+ seconds. Total strikes: ${newStrikes}`);
       
       // Update Supabase total_strikes
       let supabaseStrikeCount = 0;
