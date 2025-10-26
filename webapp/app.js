@@ -20,19 +20,43 @@ async function checkSession() {
     await loadDashboard();
     showMainApp();
   } else {
-    showAuth();
+    showLanding();
   }
 }
 
+function showLanding() {
+  document.getElementById('landing-page').style.display = 'flex';
+  document.getElementById('auth-section').style.display = 'none';
+  document.getElementById('main-section').style.display = 'none';
+}
+
 function showAuth() {
+  document.getElementById('landing-page').style.display = 'none';
   document.getElementById('auth-section').style.display = 'flex';
   document.getElementById('main-section').style.display = 'none';
 }
 
 function showMainApp() {
+  document.getElementById('landing-page').style.display = 'none';
   document.getElementById('auth-section').style.display = 'none';
   document.getElementById('main-section').style.display = 'block';
 }
+
+// Landing page navigation
+document.getElementById('get-started-btn')?.addEventListener('click', () => {
+  showAuth();
+  // Show signup view by default
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('signup-view').style.display = 'block';
+});
+
+document.getElementById('login-link')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  showAuth();
+  // Show login view
+  document.getElementById('login-view').style.display = 'block';
+  document.getElementById('signup-view').style.display = 'none';
+});
 
 // Auth handlers
 document.getElementById('switch-to-signup')?.addEventListener('click', () => {
@@ -333,7 +357,7 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
   sessionStorage.clear();
   
   currentUser = null;
-  showAuth();
+  showLanding();
   
   // Force reload to clear any cached state
   window.location.reload();
@@ -348,7 +372,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     showMainApp();
   } else if (event === 'SIGNED_OUT') {
     currentUser = null;
-    showAuth();
+    showLanding();
   }
 }); 
 
