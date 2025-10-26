@@ -291,7 +291,13 @@ def increment_strikes_supabase():
         
         # Increment strikes for this user
         url = f"{SUPABASE_URL}/rest/v1/rpc/increment_strikes"
+        print(f"📤 Calling Supabase RPC: {url}")
+        print(f"📤 Request body: {{'user_id': '{user_id}'}}")
+        
         response = requests.post(url, json={"user_id": user_id}, headers=headers, timeout=5)
+        
+        print(f"📤 Response status: {response.status_code}")
+        print(f"📤 Response text: {response.text[:200]}")
         
         if response.status_code == 200:
             data = response.json()
@@ -313,7 +319,7 @@ def increment_strikes_supabase():
                 call_user_vapi()
                 return new_strike_count
         else:
-            print(f"❌ Failed to increment strike: {response.status_code}")
+            print(f"❌ Failed to increment strike: {response.status_code} - {response.text}")
             
     except Exception as e:
         print(f"Error incrementing strikes: {e}")
