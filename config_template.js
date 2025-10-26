@@ -21,7 +21,3 @@ const VAPI_AWAY_ASSISTANT_ID = 'your-vapi-away-assistant-id';
 // Supabase
 const SUPABASE_URL = 'https://your-project.supabase.co';
 const SUPABASE_ANON_KEY = 'your-supabase-anon-key';
-
-// Fish Labs API
-const FISH_LABS_API_KEY = 'your-fish-labs-api-key';
-const FISH_LABS_MODEL_ID = 'your-fish-labs-model-id';
