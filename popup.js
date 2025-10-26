@@ -263,15 +263,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab) {
         currentTabUrl.textContent = getHostname(tab.url);
         
-        // Get productivity status from background
-        const { currentTabProductivity, tabStartTime } = await chrome.storage.local.get([
+        // Get productivity status and justification from background
+        const { currentTabProductivity, tabStartTime, productivityJustification } = await chrome.storage.local.get([
           'currentTabProductivity',
-          'tabStartTime'
+          'tabStartTime',
+          'productivityJustification'
         ]);
         
         // Update badge
         productivityBadge.textContent = currentTabProductivity || 'Checking...';
         productivityBadge.className = 'status-badge ' + (currentTabProductivity === 'Productive' ? 'productive' : currentTabProductivity === 'Unproductive' ? 'unproductive' : 'unknown');
+        
+        // Update justification message
+        const justificationDiv = document.getElementById('productivity-justification');
+        if (productivityJustification) {
+          justificationDiv.textContent = productivityJustification;
+          justificationDiv.style.display = 'block';
+        } else {
+          justificationDiv.textContent = '';
+          justificationDiv.style.display = 'none';
+        }
         
         // Update countdown
         if (currentTabProductivity === 'Unproductive' && tabStartTime) {
@@ -301,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Listen for tab changes
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.currentTabProductivity || changes.tabStartTime) {
+    if (changes.currentTabProductivity || changes.tabStartTime || changes.productivityJustification) {
       updateCurrentTabInfo();
     }
   });
