@@ -565,6 +565,8 @@ async function checkTask() {
       // Update Supabase total_strikes
       let supabaseStrikeCount = 0;
       try {
+        console.log('📤 [STRIKE DEBUG] Starting Supabase increment process...');
+        
         // Get current user_id from Supabase
         const userIdResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1`, {
           method: 'GET',
@@ -575,10 +577,15 @@ async function checkTask() {
           }
         });
         
+        console.log('📤 [STRIKE DEBUG] User ID response status:', userIdResponse.status);
+        
         if (userIdResponse.ok) {
           const sessions = await userIdResponse.json();
+          console.log('📤 [STRIKE DEBUG] Sessions data:', sessions);
+          
           if (sessions && sessions.length > 0) {
             const user_id = sessions[0].user_id;
+            console.log('📤 [STRIKE DEBUG] Found user_id:', user_id);
             
             const strikeResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_strikes`, {
               method: 'POST',
@@ -590,21 +597,31 @@ async function checkTask() {
               body: JSON.stringify({ user_id: user_id })
             });
             
+            console.log('📤 [STRIKE DEBUG] Strike increment response status:', strikeResponse.status);
+            
             if (strikeResponse.ok) {
               const strikeData = await strikeResponse.json();
-              console.log('📊 Strike increment response:', strikeData);
+              console.log('📊 [STRIKE DEBUG] Strike increment response:', strikeData);
               
               if (Array.isArray(strikeData) && strikeData.length > 0) {
                 supabaseStrikeCount = strikeData[0].total_strikes;
               } else if (strikeData && strikeData.total_strikes) {
                 supabaseStrikeCount = strikeData.total_strikes;
               }
-              console.log('✅ Strike logged successfully! Supabase total_strikes:', supabaseStrikeCount);
+              console.log('✅ [STRIKE DEBUG] Strike logged successfully! Supabase total_strikes:', supabaseStrikeCount);
+            } else {
+              const errorText = await strikeResponse.text();
+              console.error('❌ [STRIKE DEBUG] Strike increment failed:', errorText);
             }
+          } else {
+            console.error('❌ [STRIKE DEBUG] No active sessions found');
           }
+        } else {
+          const errorText = await userIdResponse.text();
+          console.error('❌ [STRIKE DEBUG] Failed to get user_id:', errorText);
         }
       } catch (e) {
-        console.log('Could not update Supabase strikes:', e);
+        console.error('❌ [STRIKE DEBUG] Error updating Supabase strikes:', e);
       }
       
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
@@ -615,22 +632,31 @@ async function checkTask() {
       const effectiveStrikeCount = supabaseStrikeCount > 0 ? supabaseStrikeCount : newStrikes;
       
       // Call mom if we hit 2 strikes and haven't called yet
-      console.log('📞 Checking if should call mom... effectiveStrikeCount:', effectiveStrikeCount, '>= 2?', effectiveStrikeCount >= 2, 'momCalled:', momCalled);
+      console.log('📞 [CALL DEBUG] Checking if should call mom...');
+      console.log('📞 [CALL DEBUG] effectiveStrikeCount:', effectiveStrikeCount);
+      console.log('📞 [CALL DEBUG] >= 2?', effectiveStrikeCount >= 2);
+      console.log('📞 [CALL DEBUG] momCalled:', momCalled);
+      console.log('📞 [CALL DEBUG] Should call?', effectiveStrikeCount >= 2 && !momCalled);
       
       if (effectiveStrikeCount >= 2 && !momCalled) {
-        console.log('📞 2+ strikes reached! Calling mom...');
-        console.log('📞 momCalled status before call:', momCalled);
+        console.log('🚨🚨🚨 [CALL DEBUG] 2+ STRIKES REACHED! CALLING MOM NOW! 🚨🚨🚨');
+        console.log('📞 [CALL DEBUG] momCalled status before call:', momCalled);
         momCalled = true; // Set this FIRST to prevent duplicate calls
         await chrome.storage.local.set({ momCalled: true }); // Persist to storage
-        console.log('📞 Set momCalled to true, now calling...');
+        console.log('📞 [CALL DEBUG] Set momCalled to true, now calling...');
         
         // Reset display strikes to 0 but keep tracking in backend
         await chrome.storage.local.set({ strikes: 0 });
         
+        console.log('📞 [CALL DEBUG] About to call callMom() with task:', currentTask);
         await callMom(currentTask);
-        console.log('📞 Call completed');
+        console.log('📞 [CALL DEBUG] Call completed');
       } else {
-        console.log('📞 Skipping call - effectiveStrikeCount:', effectiveStrikeCount, '>= 2?', effectiveStrikeCount >= 2, 'momCalled:', momCalled);
+        console.log('📞 [CALL DEBUG] Skipping call');
+        console.log('📞 [CALL DEBUG] - effectiveStrikeCount:', effectiveStrikeCount);
+        console.log('📞 [CALL DEBUG] - >= 2?:', effectiveStrikeCount >= 2);
+        console.log('📞 [CALL DEBUG] - momCalled:', momCalled);
+        console.log('📞 [CALL DEBUG] - !momCalled:', !momCalled);
       }
     } else {
       console.log('✅ User is on task!');
