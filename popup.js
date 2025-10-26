@@ -264,9 +264,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentTabUrl.textContent = getHostname(tab.url);
         
         // Get productivity status and justification from background
-        const { currentTabProductivity, tabStartTime, productivityJustification } = await chrome.storage.local.get([
+        const { 
+          currentTabProductivity, 
+          adjustedTabStartTime,
+          isPaused,
+          productivityJustification 
+        } = await chrome.storage.local.get([
           'currentTabProductivity',
-          'tabStartTime',
+          'adjustedTabStartTime',
+          'isPaused',
           'productivityJustification'
         ]);
         
@@ -284,9 +290,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           justificationDiv.style.display = 'none';
         }
         
-        // Update countdown
-        if (currentTabProductivity === 'Unproductive' && tabStartTime) {
-          const elapsed = Math.floor((Date.now() - tabStartTime) / 1000);
+        // Update countdown - pause if monitoring is paused
+        if (isPaused) {
+          countdownDiv.textContent = 'Monitoring paused';
+          countdownDiv.className = 'countdown';
+        } else if (currentTabProductivity === 'Unproductive' && adjustedTabStartTime) {
+          const elapsed = Math.floor((Date.now() - adjustedTabStartTime) / 1000);
           const remaining = Math.max(0, 30 - elapsed);
           
           if (remaining > 0) {
@@ -312,7 +321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Listen for tab changes
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.currentTabProductivity || changes.tabStartTime || changes.productivityJustification) {
+    if (changes.currentTabProductivity || changes.adjustedTabStartTime || changes.isPaused || changes.productivityJustification) {
       updateCurrentTabInfo();
     }
   });
