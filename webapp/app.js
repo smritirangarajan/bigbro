@@ -204,6 +204,33 @@ document.getElementById('start-session-btn')?.addEventListener('click', async ()
     // Store session state for extension
     localStorage.setItem('isSessionActive', 'true');
     
+    // Store user ID in a meta tag so extension can read it
+    console.log('Web app - Setting user ID in meta tag. currentUser:', currentUser);
+    console.log('Web app - currentUser.id:', currentUser?.id);
+    
+    if (!currentUser || !currentUser.id) {
+      console.error('Web app - ERROR: currentUser or currentUser.id is null/undefined!');
+      alert('Error: No user logged in. Please log in first.');
+      return;
+    }
+    
+    let userIdMeta = document.querySelector('meta[name="user-id"]');
+    if (userIdMeta) {
+      userIdMeta.content = currentUser.id;
+      console.log('Web app - Updated existing meta tag with user ID:', userIdMeta.content);
+    } else {
+      userIdMeta = document.createElement('meta');
+      userIdMeta.name = 'user-id';
+      userIdMeta.content = currentUser.id;
+      document.head.appendChild(userIdMeta);
+      console.log('Web app - Created new meta tag with user ID:', userIdMeta.content);
+    }
+    
+    // Double-check the meta tag was created
+    const verifyMeta = document.querySelector('meta[name="user-id"]');
+    console.log('Web app - Verification - Meta tag exists:', !!verifyMeta);
+    console.log('Web app - Verification - Meta tag content:', verifyMeta?.content);
+    
     // Start vision monitor
     try {
       await fetch('http://localhost:8080/start_session', { method: 'POST' });
@@ -242,6 +269,12 @@ document.getElementById('stop-session-btn')?.addEventListener('click', async () 
   
   // Remove session state
   localStorage.removeItem('isSessionActive');
+  
+  // Remove user ID meta tag
+  const userIdMeta = document.querySelector('meta[name="user-id"]');
+  if (userIdMeta) {
+    userIdMeta.remove();
+  }
   
   // Stop vision monitor
   try {

@@ -65,17 +65,23 @@ print(f"Debug: VAPI_API_KEY loaded: {bool(VAPI_API_KEY)}")
 print(f"Debug: VAPI_PHONE_NUMBER_ID loaded: {bool(VAPI_PHONE_NUMBER_ID)}")
 print(f"Debug: VAPI_SLACK_OFF_ASSISTANT_ID loaded: {bool(VAPI_SLACK_OFF_ASSISTANT_ID)}")
 
-# Sleep detection variables
-sleep_start_time = None
-SLEEP_THRESHOLD = 5  # 5 seconds for testing (was 60)
-alert_triggered = False
+# Detection variables
 current_task = "work"  # Store current task for personalized messages
 
-# Absence detection variables
+# Sleep detection
+sleep_start_time = None
+SLEEP_THRESHOLD = 5  # 5 seconds before alert
+sleep_alert_triggered = False
+sleep_countdown = None
+
+# User gone (not visible) detection
 absence_start_time = None
 ABSENCE_THRESHOLD = 30  # 30 seconds before calling user
 absence_alert_triggered = False
-absence_countdown = None  # Track countdown for absence
+absence_countdown = None
+
+# Phone detection (disabled - not working properly)
+phone_detection_enabled = False
 
 # Base wake-up messages (used as fallback or inspiration)
 WAKE_UP_MESSAGES = [
@@ -339,9 +345,64 @@ def generate_frames():
         camera.release()
 
 
+def detect_phone_use(frame):
+    """Detect if user is holding a phone using improved detection."""
+    try:
+        # Method 1: Check for dark rectangular objects (phone screens)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Threshold to find dark regions (phone screens are typically dark)
+        _, thresh = cv2.threshold(blurred, 50, 255, cv2.THRESH_BINARY_INV)
+        
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            # Phone screens are typically 3000-80000 pixels at 640x480 resolution
+            if 3000 < area < 80000:
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / float(h) if h > 0 else 0
+                # Phone aspect ratios are typically 0.5 to 2.0
+                if 0.4 < aspect_ratio < 2.5:
+                    # Check if it's in the center/upper portion of the frame (where phones are held)
+                    center_x = x + w / 2
+                    center_y = y + h / 2
+                    frame_center_x = frame.shape[1] / 2
+                    frame_center_y = frame.shape[0] / 2
+                    
+                    # Phone is typically held near the center or top of the frame
+                    if (abs(center_x - frame_center_x) < frame.shape[1] * 0.4 and 
+                        center_y < frame.shape[0] * 0.6):
+                        return True
+        
+        # Method 2: Check for bright rectangular edges (phone edges/borders)
+        edges = cv2.Canny(blurred, 50, 150)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if 1000 < area < 60000:
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / float(h) if h > 0 else 0
+                if 0.5 < aspect_ratio < 2.0:
+                    # Check for rectangular shape
+                    rect_area = w * h
+                    extent = float(area) / rect_area if rect_area > 0 else 0
+                    # Phones typically have high extent (close to rectangular)
+                    if extent > 0.5:
+                        return True
+        
+        return False
+    except Exception as e:
+        print(f"Error in phone detection: {e}")
+        return False
+
 def run_attention_analysis():
-    """Run simple attention analysis with sleep detection."""
-    global current_status, alert_countdown, alert_canceled, sleep_start_time, alert_triggered
+    """Run attention analysis - three modes: focused, sleeping, user gone."""
+    global current_status
+    global sleep_start_time, sleep_alert_triggered, sleep_countdown
     global absence_start_time, absence_alert_triggered, absence_countdown
     
     import mediapipe as mp
@@ -350,7 +411,6 @@ def run_attention_analysis():
     
     # Initialize MediaPipe Face Mesh
     mp_face_mesh = mp.solutions.face_mesh
-    mp_drawing = mp.solutions.drawing_utils
     face_mesh = mp_face_mesh.FaceMesh(
         max_num_faces=1,
         refine_landmarks=True,
@@ -368,117 +428,88 @@ def run_attention_analysis():
         if not success:
             break
         
+        # Phone detection is disabled, skipping
+        
         # Convert BGR to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(rgb_frame)
         
         if results.multi_face_landmarks:
-            # Face detected - check if eyes are open or closed
+            # Face detected - check sleep
             landmarks = results.multi_face_landmarks[0].landmark
             
-            # Get left and right eye landmarks
+            # Check sleep using eye aspect ratio
             left_eye_top = landmarks[159].y
             left_eye_bottom = landmarks[145].y
             right_eye_top = landmarks[386].y
             right_eye_bottom = landmarks[374].y
-            
-            # Calculate eye aspect ratio (EAR)
             left_ear = abs(left_eye_top - left_eye_bottom)
             right_ear = abs(right_eye_top - right_eye_bottom)
             avg_ear = (left_ear + right_ear) / 2
             
-            # Update status based on EAR
-            if avg_ear > 0.02:
-                current_status = "Alert and focused"
-                # Reset sleep tracking when awake
-                if sleep_start_time is not None:
-                    print(f"User woke up after {time.time() - sleep_start_time:.1f} seconds")
-                sleep_start_time = None
-                alert_triggered = False
-                alert_countdown = None
-            elif avg_ear > 0.01:
-                current_status = "Slightly drowsy"
-                # Reset sleep tracking when slightly drowsy
-                if sleep_start_time is not None:
-                    print(f"User became drowsy after {time.time() - sleep_start_time:.1f} seconds")
-                sleep_start_time = None
-                alert_triggered = False
-                alert_countdown = None
-            else:
+            # Determine current state
+            if avg_ear < 0.01:
+                # Sleeping
                 current_status = "Sleeping"
-                
-                # Start sleep timer if not already started
                 if sleep_start_time is None:
                     sleep_start_time = time.time()
-                    print(f"Sleep detected at {time.time()}")
+                    print("😴 Sleep detected")
                 
-                # Calculate sleep duration
                 sleep_duration = time.time() - sleep_start_time
-                print(f"Sleep duration: {sleep_duration:.1f}s (threshold: {SLEEP_THRESHOLD}s)")
                 
-                # Check if we've been sleeping for more than threshold
-                if sleep_duration >= SLEEP_THRESHOLD and not alert_triggered:
-                    print(f"Sleep alert triggered after {sleep_duration:.1f} seconds")
-                    alert_triggered = True
-                    
-                    # Generate personalized wake-up message using Gemini
+                # Sleep countdown
+                if sleep_duration < SLEEP_THRESHOLD:
+                    sleep_countdown = time.time() + (SLEEP_THRESHOLD - sleep_duration)
+                else:
+                    sleep_countdown = None
+                
+                # Trigger alert
+                if sleep_duration >= SLEEP_THRESHOLD and not sleep_alert_triggered:
+                    print(f"🚨 Sleep alert after {sleep_duration:.1f}s")
+                    sleep_alert_triggered = True
                     wake_up_message = generate_personalized_message(current_task)
-                    print(f"Generating wake-up audio: {wake_up_message}")
-                    
                     audio_data = generate_fish_audio(wake_up_message)
                     if audio_data:
-                        print(f"Audio generated successfully, length: {len(audio_data)} bytes")
                         play_audio_alert(audio_data)
-                    else:
-                        print("Fish Audio failed, using fallback")
-                        # Fallback to system alert
-                        import os
-                        os.system("afplay /System/Library/Sounds/Alarm.aiff")
-                
-                # Set countdown for display
-                if sleep_duration < SLEEP_THRESHOLD:
-                    remaining_time = SLEEP_THRESHOLD - sleep_duration
-                    alert_countdown = time.time() + remaining_time
-                else:
-                    alert_countdown = None
+            else:
+                # Focused
+                current_status = "Focused"
+                # Reset sleep timer
+                if sleep_start_time is not None:
+                    print(f"✅ Woke up after {time.time() - sleep_start_time:.1f}s")
+                sleep_start_time = None
+                sleep_alert_triggered = False
+                sleep_countdown = None
+            
+            # Reset absence tracking when face is detected
+            if absence_start_time is not None:
+                print(f"✅ User returned after {time.time() - absence_start_time:.1f}s")
+            absence_start_time = None
+            absence_alert_triggered = False
+            absence_countdown = None
         else:
-            # No face detected - user slacking off
-            current_status = "User slacking off"
+            # No face detected - user gone
+            current_status = "User gone"
             
             # Start absence timer if not already started
             if absence_start_time is None:
                 absence_start_time = time.time()
-                print(f"User absent - started absence timer at {time.time()}")
+                print("👻 User gone - timer started")
             
             # Calculate absence duration
             absence_duration = time.time() - absence_start_time
             
-            # Set countdown for display (countdown from threshold to 0)
+            # Set countdown
             if absence_duration < ABSENCE_THRESHOLD and not absence_alert_triggered:
-                remaining_time = ABSENCE_THRESHOLD - absence_duration
-                absence_countdown = time.time() + remaining_time
+                absence_countdown = time.time() + (ABSENCE_THRESHOLD - absence_duration)
             else:
                 absence_countdown = None
             
-            # Check if user has been absent for more than threshold
+            # Trigger Vapi call
             if absence_duration >= ABSENCE_THRESHOLD and not absence_alert_triggered:
-                print(f"🚨 User absent for {absence_duration:.1f} seconds (threshold: {ABSENCE_THRESHOLD}s) - calling via Vapi")
+                print(f"🚨 User gone for {absence_duration:.1f}s - calling via Vapi")
                 call_user_vapi()
-                absence_alert_triggered = True  # Set flag after calling to prevent repeated calls
-            
-            # Reset sleep tracking when no face detected
-            sleep_start_time = None
-            alert_triggered = False
-            alert_countdown = None
-        
-        # Reset absence tracking when face is detected
-        if results.multi_face_landmarks:
-            if absence_start_time is not None:
-                absence_duration = time.time() - absence_start_time
-                print(f"User returned after {absence_duration:.1f} seconds")
-            absence_start_time = None
-            absence_alert_triggered = False
-            absence_countdown = None
+                absence_alert_triggered = True
         
         time.sleep(0.5)  # Update every 500ms
     
@@ -497,29 +528,30 @@ def video_feed():
 @app.route('/status')
 def status():
     """Get current status and countdown."""
-    global alert_countdown, alert_canceled, absence_countdown, current_status, session_active
+    global sleep_countdown, absence_countdown, current_status, session_active
     
     countdown_val = None
     
-    # Prioritize absence countdown when user is slacking off
-    if "slacking off" in current_status.lower():
+    # Determine which countdown to show based on status
+    if "gone" in current_status.lower():
+        # User gone
         if absence_countdown is not None:
             remaining = max(0, int(absence_countdown - time.time()))
             if remaining > 0:
                 countdown_val = remaining
-    # Check for sleep countdown only if not slacking off
-    elif alert_countdown is not None and not alert_canceled:
-        remaining = max(0, int(alert_countdown - time.time()))
-        if remaining > 0:
-            countdown_val = remaining
+    elif "sleep" in current_status.lower():
+        # Sleeping
+        if sleep_countdown is not None:
+            remaining = max(0, int(sleep_countdown - time.time()))
+            if remaining > 0:
+                countdown_val = remaining
     
-    status_type = "default"
+    # Determine status type - only three modes now
+    status_type = "focused"  # default
     if "sleep" in current_status.lower():
         status_type = "sleeping"
-    elif "slacking off" in current_status.lower():
-        status_type = "slacking_off"
-    elif "focused" in current_status.lower() or "alert" in current_status.lower():
-        status_type = "focused"
+    elif "gone" in current_status.lower():
+        status_type = "gone"
     
     return jsonify({
         "status": current_status,
@@ -532,10 +564,19 @@ def status():
 @app.route('/cancel_alert', methods=['POST'])
 def cancel_alert():
     """Cancel the pending alert."""
-    global alert_canceled, sleep_start_time, alert_triggered
-    alert_canceled = True
+    global sleep_start_time, sleep_alert_triggered, sleep_countdown
+    global absence_start_time, absence_alert_triggered, absence_countdown
+    
+    # Reset sleep alert
     sleep_start_time = None
-    alert_triggered = False
+    sleep_alert_triggered = False
+    sleep_countdown = None
+    
+    # Reset absence alert
+    absence_start_time = None
+    absence_alert_triggered = False
+    absence_countdown = None
+    
     return jsonify({"success": True})
 
 

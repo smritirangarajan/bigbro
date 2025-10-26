@@ -7,8 +7,17 @@ async function getPhoneNumbersFromSupabase() {
   try {
     console.log('Fetching phone numbers from Supabase...');
     
-    // Fetch all user settings (we can't filter by user_id without auth token)
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?select=mom_phone,your_phone,total_strikes,total_calls`, {
+    // Get user_id from the web app's meta tag
+    const userId = await getUserIdFromContentScript();
+    console.log('Current user ID:', userId);
+    
+    if (!userId) {
+      console.error('No user ID found');
+      return { momPhone: '', yourPhone: '' };
+    }
+    
+    // Fetch user settings for the logged-in user
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?select=mom_phone,your_phone,total_strikes,total_calls&user_id=eq.${userId}`, {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
@@ -22,24 +31,17 @@ async function getPhoneNumbersFromSupabase() {
     }
     
     const data = await response.json();
-    console.log('Supabase data:', data);
-    console.log('Number of users with settings:', data ? data.length : 0);
+    console.log('Supabase data for user:', data);
     
     if (data && data.length > 0) {
-      // Check if ANY user has phone numbers set
-      const hasPhoneNumbers = data.some(user => user.mom_phone || user.your_phone);
-      console.log('Has phone numbers:', hasPhoneNumbers);
-      
-      if (hasPhoneNumbers) {
-        // Return the first user's phone numbers
-        return {
-          momPhone: data[0].mom_phone || '',
-          yourPhone: data[0].your_phone || ''
-        };
-      }
+      // Return the logged-in user's phone numbers
+      return {
+        momPhone: data[0].mom_phone || '',
+        yourPhone: data[0].your_phone || ''
+      };
     }
     
-    console.log('No phone numbers found in Supabase');
+    console.log('No phone numbers found in Supabase for user');
     return { momPhone: '', yourPhone: '' };
   } catch (error) {
     console.error('Error fetching phone numbers from Supabase:', error);
@@ -120,5 +122,41 @@ async function checkSessionActive() {
   } catch (error) {
     console.error('Error checking session status:', error);
     return false;
+  }
+} 
+
+// Get user ID from active session in Supabase
+async function getUserIdFromContentScript() {
+  try {
+    console.log('Extension - Fetching user ID from Supabase active session...');
+    
+    // Query Supabase for the user with an active session
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Extension - Supabase response not ok:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    console.log('Extension - Active session data:', data);
+    
+    if (data && data.length > 0 && data[0].user_id) {
+      const userId = data[0].user_id;
+      console.log('Extension - Got user ID from active session:', userId);
+      return userId;
+    }
+    
+    console.log('Extension - No active session found');
+    return null;
+  } catch (error) {
+    console.error('Extension - Error getting user ID from Supabase:', error);
+    return null;
   }
 } 
