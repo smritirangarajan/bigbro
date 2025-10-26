@@ -9,7 +9,7 @@
 <body>
   <!-- Login Prompt -->
   <div id="login-prompt" class="container" style="text-align: center; padding: 30px;">
-    <h1>🎯 Task Monitor</h1>
+    <h1>BigBro</h1>
     <p style="margin: 20px 0;">Please start a session in the web app first</p>
     <button id="open-webapp-btn" class="btn-primary">Open Web App</button>
     <p style="margin-top: 20px; font-size: 12px; color: #666;">Log in at http://localhost:8000 and click "Start Session"</p>
@@ -17,7 +17,7 @@
   
   <!-- Main Container (shown when logged in) -->
   <div id="main-container" class="container" style="display: none;">
-    <h1>🎯 Task Monitor</h1>
+    <h1>BigBro</h1>
     
     <!-- Stats Section - Inline at Top -->
     <div class="stats-inline">
@@ -35,46 +35,87 @@
     <!-- Camera Feed Section -->
     <div id="camera-section" class="camera-section" style="display: none;">
       <h3>Attention Monitor</h3>
-      <div class="camera-container">
-        <img id="camera-feed" src="" alt="Camera Feed" style="width: 100%; border-radius: 8px; display: none;">
-        <div id="camera-placeholder" class="camera-placeholder">
-          Camera feed will appear when session is active
+      <div class="video-monitor-toggle-wrapper">
+        <label class="quiz-toggle-label">
+          <input type="checkbox" id="video-monitor-toggle">
+          <span class="quiz-toggle-text">Enable Sleep & Away Detection</span>
+        </label>
+        <p class="quiz-description">Monitors your attention using the camera</p>
+      </div>
+      <div id="camera-feed-container" style="display: none;">
+        <div class="camera-container">
+          <img id="camera-feed" src="" alt="Camera Feed" style="width: 100%; border-radius: 8px; display: none;">
+          <div id="camera-placeholder" class="camera-placeholder">
+            Camera feed will appear when enabled
+          </div>
+        </div>
+        <div id="attention-status" class="attention-status status-default">
+          <span class="status-icon"></span>
+          <span id="attention-text">Looking for face...</span>
+        </div>
+        <div id="sleep-alert" class="sleep-alert" style="display: none;">
+          <div class="alert-countdown">
+            <span id="countdown-text">Sleep alert in: </span>
+            <span id="countdown-timer">60</span>
+          </div>
+          <button id="im-awake-btn" class="btn-awake">I'm Awake!</button>
+        </div>
+        <div id="absence-alert" class="absence-alert" style="display: none;">
+          <div class="alert-countdown">
+            <span id="absence-countdown-text">Calling user in: </span>
+            <span id="absence-countdown-timer">30</span>
+          </div>
+          <button id="im-back-btn" class="btn-awake">I'm Back!</button>
         </div>
       </div>
-         <div id="attention-status" class="attention-status status-default">
-           <span class="status-icon"></span>
-           <span id="attention-text">Looking for face...</span>
-         </div>
-         <div id="sleep-alert" class="sleep-alert" style="display: none;">
-           <div class="alert-countdown">
-             <span id="countdown-text">Sleep alert in: </span>
-             <span id="countdown-timer">60</span>
-           </div>
-           <button id="im-awake-btn" class="btn-awake">I'm Awake!</button>
-         </div>
-         <div id="absence-alert" class="absence-alert" style="display: none;">
-           <div class="alert-countdown">
-             <span id="absence-countdown-text">Calling user in: </span>
-             <span id="absence-countdown-timer">30</span>
-           </div>
-           <button id="im-back-btn" class="btn-awake">I'm Back!</button>
-         </div>
     </div>
     
     <!-- Task Section - First -->
-    <div class="task-section">
-      <h2 id="task-section-title">Set Your Task</h2>
-      <div id="task-input-wrapper">
-        <textarea id="task-input" placeholder="What task are you working on?"></textarea>
-        <!-- Phone numbers loaded from Supabase - hidden inputs -->
-        <input type="tel" id="mom-phone-input" style="display: none;">
-        <input type="tel" id="your-phone-input" style="display: none;">
-        <button id="set-task-btn" class="btn-primary">Start Monitoring</button>
+    <div class="quiz-section">
+      <h2>Task Monitoring</h2>
+      <div id="task-toggle-wrapper">
+        <label class="quiz-toggle-label">
+          <input type="checkbox" id="task-monitoring-toggle">
+          <span class="quiz-toggle-text">Enable Task Monitoring</span>
+        </label>
+        <p class="quiz-description">Monitor productivity and get strikes for off-task behavior</p>
       </div>
-      <div id="monitoring-controls" style="display: none;">
-        <button id="pause-task-btn" class="btn-secondary">Pause Monitoring</button>
-        <button id="resume-task-btn" class="btn-success" style="display: none;">Resume Monitoring</button>
-        <button id="stop-task-btn" class="btn-danger">Finish Task</button>
+      <div id="task-monitoring-controls" style="display: none;">
+        <div id="task-input-wrapper" style="margin-top: 16px;">
+          <textarea id="task-input" placeholder="What task are you working on?" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; resize: vertical; min-height: 60px; margin-bottom: 8px;"></textarea>
+          <!-- Phone numbers loaded from Supabase - hidden inputs -->
+          <input type="tel" id="mom-phone-input" style="display: none;">
+          <input type="tel" id="your-phone-input" style="display: none;">
+          <button id="set-task-btn" class="btn-primary" style="width: 100%;">Start Task</button>
+        </div>
+        <div id="monitoring-controls" style="display: none; margin-top: 16px;">
+          <button id="pause-task-btn" class="btn-secondary" style="width: 100%; margin-bottom: 8px;">Pause Monitoring</button>
+          <button id="resume-task-btn" class="btn-success" style="display: none; width: 100%; margin-bottom: 8px;">Resume Monitoring</button>
+          <button id="stop-task-btn" class="btn-danger" style="width: 100%;">Finish Task</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quiz Mode Section -->
+    <div class="quiz-section">
+      <h2>Quiz Mode</h2>
+      <div id="quiz-toggle-wrapper">
+        <label class="quiz-toggle-label">
+          <input type="checkbox" id="quiz-mode-toggle">
+          <span class="quiz-toggle-text">Enable Quiz Mode (tests your reading comprehension)</span>
+        </label>
+        <p class="quiz-description">When enabled, content you read will be cached and you'll be randomly quizzed on it</p>
+      </div>
+      
+      <!-- Debug Logs Toggle -->
+      <div style="margin-top: 12px;">
+        <label class="quiz-toggle-label">
+          <input type="checkbox" id="debug-logs-toggle">
+          <span class="quiz-toggle-text" style="font-size: 13px;">Show Debug Logs</span>
+        </label>
+      </div>
+      <div id="debug-logs-container" style="display: none; margin-top: 12px; background: #f5f5f5; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 11px;">
+        <div id="debug-logs"></div>
       </div>
     </div>
     

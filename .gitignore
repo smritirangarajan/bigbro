@@ -1,27 +1,52 @@
+# Environment files
 .env
+.env.local
+.env.*.local
 vision/.env
+
+# Node modules
 node_modules/
-vision/venv/
-*.log
-.DS_Store
+
+# Python
 __pycache__/
 *.pyc
+venv/
+.venv/
+vision/venv/
+
+# Logs
+*.log
+vision_server.log
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
 
 # Sensitive configuration files - DO NOT COMMIT
 config.js
 webapp/config.js
+*.key
+*.pem
 
-# Template files (these are safe to commit)
-# config_template.js (in root)
+# Events and temp files
+events.jsonl
+.events/
+*.tmp
+
+# Backup files
+*.backup
+popup.js.backup
+
+# Template files (safe to commit)
+# config_template.js
 # webapp/config_template.js
 
+# ChromaDB data
+chroma_db/
+*.db
+*.sqlite
 
-# Python virtual environments
-venv/
-.venv/
-.env
-__pycache__/
-.events/
-*.pyc
-.DS_Store
-events.jsonl
+# Supabase secrets
+supabase_secrets.txt

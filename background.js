@@ -22,10 +22,10 @@ chrome.storage.local.get(['lastStrikeTime']).then(({ lastStrikeTime: stored }) =
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('📨 DEBUG: Message received:', message.action, 'from:', sender.url);
+  
   if (message.action === 'startMonitoring') {
     startMonitoring();
-  } else if (message.action === 'stopMonitoring') {
-    stopMonitoring();
   } else if (message.action === 'pauseMonitoring') {
     console.log('⏸️ Monitoring paused');
     pausedAt = Date.now();
@@ -49,6 +49,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       CLAUDE_API_KEY: CLAUDE_API_KEY
     });
+  } else if (message.action === 'startQuizMode') {
+    startQuizMode();
+  } else if (message.action === 'stopQuizMode') {
+    stopQuizMode();
+  } else if (message.action === 'cacheContent') {
+    console.log('📥 DEBUG: ✅ Received cacheContent message from content script');
+    console.log('📥 DEBUG: Content length:', message.content ? message.content.length : 0);
+    console.log('📥 DEBUG: URL:', message.url);
+    console.log('📥 DEBUG: Quiz mode enabled:', quizModeEnabled);
+    cacheQuizContent(message.content, message.url);
+  } else if (message.action === 'quizAnswer') {
+    // This is already handled in the onMessage listener below
+  } else if (message.action === 'processScreenshot') {
+    processScreenshotWithClaude(message.screenshot, message.url, message.title);
+  } else if (message.action === 'screenshotFailed') {
+    console.log('Screenshot capture failed:', message.error);
   }
   // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
@@ -1288,3 +1304,570 @@ chrome.storage.local.get(['isMonitoring'], (result) => {
     startMonitoring();
   }
 });
+
+// ============================================
+// QUIZ MODE FUNCTIONS
+// ============================================
+
+let quizModeEnabled = false;
+let quizContentCache = [];
+let quizTimer = null;
+let nextQuizTime = 0;
+
+function startQuizMode() {
+  console.log('📝 Starting quiz mode');
+  quizModeEnabled = true;
+  quizContentCache = [];
+  
+  // Schedule first quiz between 20-40 seconds
+  const timeUntilFirstQuiz = 20000 + Math.random() * 20000;
+  nextQuizTime = Date.now() + timeUntilFirstQuiz;
+  
+  // Start timer for random quizzes
+  startQuizTimer();
+}
+
+function stopQuizMode() {
+  console.log('📝 Stopping quiz mode');
+  quizModeEnabled = false;
+  if (quizTimer) {
+    clearTimeout(quizTimer);
+    quizTimer = null;
+  }
+  quizContentCache = [];
+}
+
+function startQuizTimer() {
+  if (!quizModeEnabled) return;
+  
+  // Random time between 20-40 seconds
+  const timeUntilQuiz = 20000 + Math.random() * 20000;
+  
+  quizTimer = setTimeout(async () => {
+    if (!quizModeEnabled || quizContentCache.length === 0) {
+      // Schedule next quiz
+      if (quizModeEnabled) startQuizTimer();
+      return;
+    }
+    
+    // Trigger quiz
+    await triggerQuiz();
+    
+    // Schedule next quiz
+    startQuizTimer();
+  }, timeUntilQuiz);
+}
+
+async function cacheQuizContent(content, url) {
+  if (!quizModeEnabled) {
+    console.log('📥 DEBUG: Quiz mode not enabled, skipping content cache');
+    return;
+  }
+  
+  console.log('📥 Caching content for quiz:', content.substring(0, 100) + '...');
+  console.log('📥 DEBUG: Content URL:', url);
+  console.log('📥 DEBUG: Content length:', content.length);
+  
+  // Add to cache (limit to last 100 items to avoid memory issues)
+  quizContentCache.push({
+    content: content,
+    url: url,
+    timestamp: Date.now()
+  });
+  
+  if (quizContentCache.length > 100) {
+    quizContentCache.shift();
+  }
+  
+  console.log('📥 DEBUG: Cache now has', quizContentCache.length, 'items');
+  
+  // Store in Chrome storage for persistence
+  await chrome.storage.local.set({ quizContentCache: quizContentCache });
+}
+
+async function triggerQuiz() {
+  console.log('🎯 Triggering quiz!');
+  console.log('🎯 DEBUG: quizContentCache length:', quizContentCache.length);
+  console.log('🎯 DEBUG: quizModeEnabled:', quizModeEnabled);
+  
+  // Get recent content (last 30 seconds)
+  const recentContent = quizContentCache.filter(
+    item => Date.now() - item.timestamp < 30000
+  );
+  
+  console.log('🎯 DEBUG: Recent content count (last 30s):', recentContent.length);
+  
+  if (recentContent.length === 0) {
+    console.log('⚠️ No recent content to quiz on');
+    console.log('⚠️ DEBUG: All cached content timestamps:', quizContentCache.map(c => ({
+      url: c.url,
+      age: Date.now() - c.timestamp
+    })));
+    return;
+  }
+  
+  // Pick random content
+  const quizContent = recentContent[Math.floor(Math.random() * recentContent.length)];
+  console.log('🎯 DEBUG: Selected content for quiz:', quizContent.url);
+  
+  try {
+    // Generate quiz question using Claude
+    const question = await generateQuizQuestion(quizContent.content);
+    
+    if (question) {
+      console.log('🎯 DEBUG: Question generated successfully, showing popup');
+      // Show quiz popup
+      await showQuizPopup(question);
+    } else {
+      console.log('❌ DEBUG: No question generated');
+    }
+  } catch (error) {
+    console.error('❌ Error generating quiz:', error);
+    console.error('❌ Error stack:', error.stack);
+  }
+}
+
+async function generateQuizQuestion(content) {
+  console.log('🎯 DEBUG: Generating quiz question for content:', content.substring(0, 100) + '...');
+  
+  try {
+    const prompt = `Based on the following content, generate a quiz question:
+    
+Content: "${content.substring(0, 1000)}"
+
+Generate either:
+1. A multiple choice question with 4 options (A, B, C, D) and indicate the correct answer
+2. A true/false question
+
+Format your response as JSON:
+{
+  "type": "multiple_choice" OR "true_false",
+  "question": "your question",
+  "options": ["option1", "option2", "option3", "option4"] (only for multiple_choice),
+  "correct": "A" OR "B" OR "C" OR "D" OR "true" OR "false"
+}`;
+
+    console.log('🎯 DEBUG: Sending request to Claude API...');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    console.log('🎯 DEBUG: Received response from Claude:', data);
+    
+    const text = data.content[0].text;
+    console.log('🎯 DEBUG: Extracted text:', text);
+    
+    // Parse JSON response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const question = JSON.parse(jsonMatch[0]);
+      console.log('🎯 DEBUG: Parsed question:', question);
+      return question;
+    }
+    
+    console.log('🎯 DEBUG: No JSON match found');
+    return null;
+  } catch (error) {
+    console.error('❌ Error generating quiz question:', error);
+    console.error('❌ Error details:', error.message);
+    return null;
+  }
+}
+
+async function showQuizPopup(question) {
+  console.log('📝 Showing quiz popup:', question);
+  
+  // Get the active tab to show alert
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    const activeTab = tabs[0];
+    
+    // Build the question text
+    let questionText = `📝 QUIZ TIME!\n\n${question.question}\n\n`;
+    
+    if (question.type === 'multiple_choice') {
+      question.options.forEach((opt, i) => {
+        questionText += `${String.fromCharCode(65 + i)}. ${opt}\n`;
+      });
+    } else {
+      questionText += 'Type "true" or "false"';
+    }
+    
+    // Store question data
+    await chrome.storage.local.set({
+      currentQuiz: question
+    });
+    
+    // Execute script in the active tab to show alert
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: showQuizAlert,
+      args: [questionText]
+    });
+  }
+}
+
+function showQuizAlert(questionText) {
+  // Create a modal for the quiz with timer
+  const modal = document.createElement('div');
+  modal.id = 'quiz-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  `;
+  
+  const timer = document.createElement('div');
+  timer.id = 'quiz-timer';
+  timer.style.cssText = `
+    font-size: 24px;
+    font-weight: bold;
+    color: #dc3545;
+    margin-bottom: 20px;
+    text-align: center;
+  `;
+  timer.textContent = '⏱️ 30 seconds remaining';
+  
+  const questionDiv = document.createElement('div');
+  questionDiv.style.cssText = `
+    font-size: 18px;
+    margin-bottom: 20px;
+    white-space: pre-line;
+  `;
+  questionDiv.textContent = questionText;
+  
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Type your answer (e.g., A, B, true, false)';
+  input.style.cssText = `
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+  `;
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = 'display: flex; gap: 10px;';
+  
+  const submitBtn = document.createElement('button');
+  submitBtn.textContent = 'Submit Answer';
+  submitBtn.style.cssText = `
+    flex: 1;
+    padding: 12px;
+    background: #1a4d2e;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+  `;
+  
+  let timeRemaining = 30;
+  let timerInterval = null;
+  
+  const updateTimer = () => {
+    timer.textContent = `⏱️ ${timeRemaining} seconds remaining`;
+    if (timeRemaining <= 10) {
+      timer.style.color = '#dc3545';
+    } else {
+      timer.style.color = '#1a4d2e';
+    }
+    
+    if (timeRemaining <= 0) {
+      // Time's up - submit empty answer
+      clearInterval(timerInterval);
+      modal.remove();
+      
+      // Send empty answer back to background script
+      chrome.runtime.sendMessage({
+        action: 'quizAnswer',
+        answer: ''
+      });
+      
+      // Show timeout message
+      alert('⏱️ Time\'s up! No answer submitted.');
+    } else {
+      timeRemaining--;
+    }
+  };
+  
+  // Start timer
+  timerInterval = setInterval(updateTimer, 1000);
+  
+  // Handle submit
+  const submitAnswer = () => {
+    clearInterval(timerInterval);
+    modal.remove();
+    
+    // Send answer back to background script
+    chrome.runtime.sendMessage({
+      action: 'quizAnswer',
+      answer: input.value || ''
+    });
+  };
+  
+  submitBtn.addEventListener('click', submitAnswer);
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      submitAnswer();
+    }
+  });
+  
+  buttonContainer.appendChild(submitBtn);
+  
+  modalContent.appendChild(timer);
+  modalContent.appendChild(questionDiv);
+  modalContent.appendChild(input);
+  modalContent.appendChild(buttonContainer);
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Focus the input
+  input.focus();
+}
+
+// Handle quiz answer submission from alert
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'quizAnswer') {
+    handleQuizAnswer(message.answer);
+  }
+  return true;
+});
+
+async function handleQuizAnswer(userAnswer) {
+  const { currentQuiz } = await chrome.storage.local.get(['currentQuiz']);
+  
+  if (!currentQuiz) {
+    console.log('❌ DEBUG: No current quiz found');
+    return;
+  }
+  
+  // If no answer provided (timeout), treat as incorrect
+  if (!userAnswer || userAnswer.trim() === '') {
+    console.log('❌ DEBUG: No answer provided (timeout), marking as incorrect');
+    await updateQuizStats(false);
+    
+    const resultText = `⏱️ TIME'S UP!\n\nYou ran out of time. The correct answer was: ${currentQuiz.correct}`;
+    
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]) {
+      await chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: showResultAlert,
+        args: [resultText]
+      });
+    }
+    
+    await chrome.storage.local.remove(['currentQuiz']);
+    return;
+  }
+  
+  console.log('🎯 DEBUG: User answer:', userAnswer);
+  console.log('🎯 DEBUG: Correct answer:', currentQuiz.correct);
+  
+  let isCorrect = false;
+  
+  if (currentQuiz.type === 'multiple_choice') {
+    // Check if answer matches the correct letter (A, B, C, or D)
+    const answerLetter = userAnswer.trim().toUpperCase().charAt(0);
+    isCorrect = answerLetter === currentQuiz.correct.toUpperCase();
+    console.log('🎯 DEBUG: Multiple choice - user:', answerLetter, 'correct:', currentQuiz.correct.toUpperCase());
+  } else {
+    // True/false question
+    const userAnswerLower = userAnswer.trim().toLowerCase();
+    isCorrect = userAnswerLower === currentQuiz.correct.toLowerCase();
+    console.log('🎯 DEBUG: True/false - user:', userAnswerLower, 'correct:', currentQuiz.correct.toLowerCase());
+  }
+  
+  console.log('🎯 DEBUG: Answer is correct:', isCorrect);
+  
+  // Update quiz stats in Supabase
+  await updateQuizStats(isCorrect);
+  
+  // Get the active tab to show result alert
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    const resultText = isCorrect 
+      ? '✅ CORRECT! Great job! 🎉'
+      : `❌ INCORRECT\n\nCorrect answer: ${currentQuiz.correct}`;
+    
+    await chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: showResultAlert,
+      args: [resultText]
+    });
+  }
+  
+  // Clear current quiz
+  await chrome.storage.local.remove(['currentQuiz']);
+}
+
+function showResultAlert(resultText) {
+  alert(resultText);
+}
+
+async function updateQuizStats(isCorrect) {
+  console.log('📊 DEBUG: updateQuizStats called, isCorrect:', isCorrect);
+  
+  try {
+    // Get user ID from storage or meta tag
+    const userId = await getUserID();
+    console.log('📊 DEBUG: User ID:', userId);
+    
+    if (!userId) {
+      console.log('❌ No user ID found, cannot update quiz stats');
+      return;
+    }
+    
+    console.log('📊 DEBUG: Calling increment_quiz_stats function...');
+    console.log('📊 DEBUG: Request body:', JSON.stringify({
+      user_id: userId,
+      is_correct: isCorrect
+    }));
+    
+    // Update Supabase with quiz results
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_quiz_stats`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        is_correct: isCorrect
+      })
+    });
+    
+    console.log('📊 DEBUG: Response status:', response.status);
+    const responseText = await response.text();
+    console.log('📊 DEBUG: Response body:', responseText);
+    
+    if (response.ok) {
+      console.log('✅ Updated quiz stats:', isCorrect ? 'correct' : 'incorrect');
+    } else {
+      console.error('❌ Failed to update quiz stats. Status:', response.status);
+    }
+  } catch (error) {
+    console.error('❌ Error updating quiz stats:', error);
+    console.error('❌ Error stack:', error.stack);
+  }
+}
+
+async function getUserID() {
+  // Try to get from chrome storage first
+  const { userId } = await chrome.storage.local.get(['userId']);
+  return userId;
+}
+
+// Process screenshot with Claude Vision for content extraction
+async function processScreenshotWithClaude(screenshot, url, title) {
+  try {
+    console.log('📸 Processing screenshot with Claude Vision...');
+    
+    // Extract base64 image data
+    const base64Image = screenshot.split(',')[1];
+    
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: base64Image
+              }
+            },
+            {
+              type: 'text',
+              text: 'Please extract all readable text content from this screenshot. Include only the main content that would be useful for learning - ignore navigation, ads, and UI elements. Return the text in a clean format.'
+            }
+          ]
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    const extractedText = data.content[0].text;
+    
+    console.log('📝 Extracted text from screenshot:', extractedText.substring(0, 100) + '...');
+    
+    // Store in ChromaDB via backend service
+    await storeInChromaDB(extractedText, url, title);
+    
+  } catch (error) {
+    console.error('Error processing screenshot with Claude:', error);
+  }
+}
+
+// Store content in ChromaDB using Python backend
+async function storeInChromaDB(content, url, title) {
+  try {
+    // Call a local API endpoint (we'll create a simple Python server for this)
+    const response = await fetch('http://localhost:5000/store-content', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        content: content,
+        url: url,
+        title: title
+      })
+    });
+    
+    if (response.ok) {
+      console.log('✅ Content stored in ChromaDB');
+    } else {
+      console.log('Failed to store in ChromaDB (backend may not be running)');
+    }
+  } catch (error) {
+    console.log('ChromaDB storage failed (backend may not be running):', error.message);
+  }
+}

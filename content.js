@@ -5,6 +5,210 @@ console.log('Productivity Task Monitor loaded');
 // Track active webcam stream
 let activeStream = null;
 
+// Quiz mode content capture
+let lastScrollTime = Date.now();
+let contentCaptureInterval = null;
+
+// Initialize quiz mode content capture
+function initQuizModeCapture() {
+  if (contentCaptureInterval) {
+    console.log('📝 DEBUG: Content capture already initialized');
+    return;
+  }
+  
+  console.log('📝 Initializing quiz mode content capture');
+  
+  // Capture content when user scrolls
+  let lastScrollTop = 0;
+  window.addEventListener('scroll', () => {
+    lastScrollTime = Date.now();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    console.log('📝 DEBUG: Scroll detected, scrollTop:', scrollTop);
+    
+    // Only capture if user scrolled significantly (more than 200px)
+    if (Math.abs(scrollTop - lastScrollTop) > 200) {
+      console.log('📝 DEBUG: Significant scroll detected, capturing content');
+      capturePageContent();
+      lastScrollTop = scrollTop;
+    }
+  });
+  
+  // Also capture content every 10 seconds if on the same page
+  contentCaptureInterval = setInterval(() => {
+    const timeSinceScroll = Date.now() - lastScrollTime;
+    console.log('📝 DEBUG: Timer tick, time since scroll:', timeSinceScroll, 'ms');
+    
+    // Only capture if user recently scrolled (within last 30 seconds)
+    if (timeSinceScroll < 30000) {
+      console.log('📝 DEBUG: Recent scroll detected, capturing content');
+      capturePageContent();
+    } else {
+      console.log('📝 DEBUG: No recent scroll, skipping capture');
+    }
+  }, 10000);
+  
+  console.log('📝 DEBUG: Content capture initialized with interval');
+}
+
+function stopQuizModeCapture() {
+  if (contentCaptureInterval) {
+    clearInterval(contentCaptureInterval);
+    contentCaptureInterval = null;
+    console.log('📝 Stopped quiz mode content capture');
+  }
+}
+
+async function capturePageContent() {
+  console.log('📸 DEBUG: capturePageContent called');
+  
+  // Capture screenshot first for Claude Vision
+  try {
+    console.log('📸 DEBUG: Attempting to capture screenshot...');
+    const screenshot = await captureScreenshot();
+    console.log('📸 DEBUG: Screenshot captured, length:', screenshot.length);
+    
+    // Send screenshot to background for Claude Vision processing
+    chrome.runtime.sendMessage({
+      action: 'processScreenshot',
+      screenshot: screenshot,
+      url: window.location.href,
+      title: document.title
+    });
+    console.log('📸 DEBUG: Screenshot sent to background script');
+  } catch (error) {
+    console.error('❌ Error capturing screenshot:', error);
+  }
+  
+  // Also capture text content as fallback
+  const mainSelectors = [
+    'article',
+    'main',
+    '[role="main"]',
+    '.content',
+    '.post-content',
+    '.entry-content',
+    '.article-content',
+    '#content',
+    '.main-content'
+  ];
+  
+  let mainContent = null;
+  for (const selector of mainSelectors) {
+    mainContent = document.querySelector(selector);
+    if (mainContent) break;
+  }
+  
+  const sourceElement = mainContent || document.body;
+  let textContent = sourceElement.innerText || sourceElement.textContent;
+  
+  // Remove navigation, footer, and common non-content elements
+  const nonContentSelectors = 'nav, header, footer, aside, .nav, .navigation, .menu, .sidebar, .ad, .advertisement, .ads, .cookie, .modal';
+  const nonContentElements = sourceElement.querySelectorAll(nonContentSelectors);
+  nonContentElements.forEach(el => {
+    const clone = el.cloneNode(true);
+    const cloneText = clone.innerText || clone.textContent;
+    if (cloneText) {
+      textContent = textContent.replace(cloneText, '');
+    }
+  });
+  
+  const cleanText = textContent
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 2000);
+  
+  if (cleanText.length >= 50) {
+    console.log('📥 DEBUG: Clean text length:', cleanText.length);
+    console.log('📥 DEBUG: Current URL:', window.location.href);
+    
+    // Send to background for ChromaDB storage
+    chrome.runtime.sendMessage({
+      action: 'cacheContent',
+      content: cleanText,
+      url: window.location.href,
+      title: document.title
+    }, (response) => {
+      console.log('📥 DEBUG: Response from background:', response);
+    });
+    
+    console.log('📥 Captured content for quiz:', cleanText.substring(0, 100) + '...');
+  } else {
+    console.log('📥 DEBUG: Text too short, length:', cleanText.length);
+  }
+}
+
+async function captureScreenshot() {
+  try {
+    // Request screen capture
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        mediaSource: 'screen',
+        cursor: 'never'
+      }
+    });
+    
+    // Create video element to capture frame
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.playsInline = true;
+    await video.play();
+    
+    // Wait for video to be ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Create canvas and capture frame
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    
+    // Get image as base64
+    const screenshot = canvas.toDataURL('image/png', 0.8);
+    
+    // Stop the stream
+    stream.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    
+    return screenshot;
+  } catch (error) {
+    console.error('Screenshot capture failed:', error);
+    // Fallback to sending a message that screenshot failed
+    chrome.runtime.sendMessage({
+      action: 'screenshotFailed',
+      error: error.message
+    });
+    throw error;
+  }
+}
+
+// Check if quiz mode is enabled and start/stop capture accordingly
+chrome.storage.local.get(['quizMode']).then(({ quizMode }) => {
+  console.log('📝 DEBUG: Quiz mode state:', quizMode);
+  if (quizMode) {
+    console.log('📝 DEBUG: Quiz mode enabled, initializing content capture');
+    initQuizModeCapture();
+  } else {
+    console.log('📝 DEBUG: Quiz mode disabled');
+  }
+});
+
+// Listen for quiz mode changes
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  console.log('📝 DEBUG: Storage changed:', changes);
+  if (namespace === 'local' && changes.quizMode) {
+    console.log('📝 DEBUG: Quiz mode changed to:', changes.quizMode.newValue);
+    if (changes.quizMode.newValue) {
+      console.log('📝 DEBUG: Starting quiz capture');
+      initQuizModeCapture();
+    } else {
+      console.log('📝 DEBUG: Stopping quiz capture');
+      stopQuizModeCapture();
+    }
+  }
+});
+
 // Listen for strike alerts and webcam checks from background script
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'showStrikeAlert') {

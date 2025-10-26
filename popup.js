@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const monitoringIndicator = document.getElementById('monitoring-indicator');
   const monitoringText = document.getElementById('monitoring-text');
   const openWebappBtn = document.getElementById('open-webapp-btn');
+  const quizModeToggle = document.getElementById('quiz-mode-toggle');
+  const videoMonitorToggle = document.getElementById('video-monitor-toggle');
+  const cameraFeedContainer = document.getElementById('camera-feed-container');
+  const taskMonitoringToggle = document.getElementById('task-monitoring-toggle');
+  const taskMonitoringControls = document.getElementById('task-monitoring-controls');
+  const debugLogsToggle = document.getElementById('debug-logs-toggle');
+  const debugLogsContainer = document.getElementById('debug-logs-container');
+  const debugLogsDiv = document.getElementById('debug-logs');
   
   // Check if user is logged in by checking for phone numbers in Supabase
   async function checkLoginStatus() {
@@ -102,9 +110,110 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: 'http://localhost:8000' });
   });
 
+  // Quiz mode toggle
+  quizModeToggle.addEventListener('change', async (e) => {
+    const enabled = e.target.checked;
+    console.log('🎯 QUIZ MODE TOGGLE CHANGE EVENT:', enabled);
+    console.log('🎯 Event type:', e.type, 'Target:', e.target);
+    
+    // Check if this was programmatic (not user-initiated)
+    if (e.isTrusted === false) {
+      console.log('⚠️ Skipping - this change was programmatic');
+      return;
+    }
+    
+    console.log('✅ User-initiated change - proceeding');
+    await chrome.storage.local.set({ quizMode: enabled });
+    console.log('✅ Quiz mode state saved to storage');
+    
+    if (enabled) {
+      console.log('📝 Quiz mode ENABLED - starting content caching');
+      chrome.runtime.sendMessage({ action: 'startQuizMode' }).catch(err => {
+        console.error('❌ Error sending startQuizMode message:', err);
+      });
+      console.log('✅ startQuizMode message sent to background');
+    } else {
+      console.log('📝 Quiz mode DISABLED - stopping content caching');
+      chrome.runtime.sendMessage({ action: 'stopQuizMode' }).catch(err => {
+        console.error('❌ Error sending stopQuizMode message:', err);
+      });
+      console.log('✅ stopQuizMode message sent to background');
+    }
+  });
+
+  // Video monitor toggle
+  videoMonitorToggle.addEventListener('change', async (e) => {
+    const enabled = e.target.checked;
+    await chrome.storage.local.set({ videoMonitorEnabled: enabled });
+    
+    if (enabled) {
+      console.log('📹 Video monitor enabled');
+      cameraFeedContainer.style.display = 'block';
+      chrome.runtime.sendMessage({ action: 'startVideoMonitor' });
+    } else {
+      console.log('📹 Video monitor disabled');
+      cameraFeedContainer.style.display = 'none';
+      chrome.runtime.sendMessage({ action: 'stopVideoMonitor' });
+    }
+  });
+
+  // Task monitoring toggle
+  taskMonitoringToggle.addEventListener('change', async (e) => {
+    const enabled = e.target.checked;
+    await chrome.storage.local.set({ taskMonitoringEnabled: enabled });
+    
+    if (enabled) {
+      console.log('📊 Task monitoring enabled');
+      taskMonitoringControls.style.display = 'block';
+    } else {
+      console.log('📊 Task monitoring disabled');
+      taskMonitoringControls.style.display = 'none';
+      // Stop any ongoing monitoring if disabled
+      chrome.runtime.sendMessage({ action: 'stopMonitoring' });
+    }
+  });
+
+  // Debug logs toggle
+  debugLogsToggle.addEventListener('change', (e) => {
+    const show = e.target.checked;
+    debugLogsContainer.style.display = show ? 'block' : 'none';
+    
+    if (show) {
+      // Start listening for log messages
+      listenForLogs();
+    }
+  });
+
+  // Function to listen for log messages from background
+  function listenForLogs() {
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'log' && debugLogsToggle.checked) {
+        addLogToDisplay(message.text, message.timestamp);
+      }
+    });
+  }
+
+  // Function to add a log entry to the display
+  function addLogToDisplay(text, timestamp) {
+    const logEntry = document.createElement('div');
+    logEntry.style.cssText = 'margin-bottom: 4px; color: #333; line-height: 1.4;';
+    logEntry.textContent = `[${new Date(timestamp).toLocaleTimeString()}] ${text}`;
+    
+    debugLogsDiv.appendChild(logEntry);
+    
+    // Auto-scroll to bottom
+    debugLogsDiv.scrollTop = debugLogsDiv.scrollHeight;
+    
+    // Keep only last 50 entries
+    while (debugLogsDiv.children.length > 50) {
+      debugLogsDiv.removeChild(debugLogsDiv.firstChild);
+    }
+  }
+
   // Load current state
   async function loadState() {
-    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber', 'calls']);
+    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber', 'calls', 'quizMode', 'videoMonitorEnabled', 'taskMonitoringEnabled']);
     
     if (result.currentTask) {
       currentTaskDisplay.innerHTML = `<p class="task-text">${result.currentTask}</p>`;
@@ -158,6 +267,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const calls = result.calls || 0;
     strikeCount.textContent = strikes;
     callCount.textContent = calls;
+    
+    // Load quiz mode toggle state (default to off)
+    console.log('🔄 Loading quiz mode state from storage:', result.quizMode);
+    quizModeToggle.checked = result.quizMode === true;
+    console.log('🔄 Quiz mode toggle set to:', quizModeToggle.checked);
+    
+    // Load video monitor toggle state
+    videoMonitorToggle.checked = result.videoMonitorEnabled || false;
+    if (result.videoMonitorEnabled) {
+      cameraFeedContainer.style.display = 'block';
+    }
+    
+    // Load task monitoring toggle state
+    taskMonitoringToggle.checked = result.taskMonitoringEnabled || false;
+    if (result.taskMonitoringEnabled) {
+      taskMonitoringControls.style.display = 'block';
+    }
   }
 
   // Set task
