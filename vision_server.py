@@ -33,40 +33,128 @@ alert_canceled = False
 frame_queue = deque(maxlen=1)
 analysis_thread = None
 
-# Load config
-load_dotenv(os.path.join(os.path.dirname(__file__), 'vision', '.env'))
+# Load config from root .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-# Fish Audio API key and model
+# Fish Audio API key and models
 FISH_API_KEY = os.getenv("FISH_LABS_API_KEY", "")
-FISH_MODEL_ID = os.getenv("FISH_LABS_MODEL_ID", "")
+FISH_MODEL_IDS = [
+    os.getenv("FISH_LABS_MODEL_ID", ""),  # Primary model
+    "c3ab3d55ad154918ad44418770803848",  # Alternative models
+    "b1f9011713e94a68967add052dea9a77",
+    "772b84677250463ab82a76a308bcf2df"
+]
+
+# Gemini API for personalized messages
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Vapi configuration (from environment variables)
+VAPI_API_KEY = os.getenv("VAPI_API_KEY", "")
+VAPI_PHONE_NUMBER_ID = os.getenv("VAPI_PHONE_NUMBER_ID", "")
+VAPI_SLACK_OFF_ASSISTANT_ID = os.getenv("VAPI_SLACK_OFF_ASSISTANT_ID", "")
+
+# Supabase configuration (for getting user's phone number)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 print(f"Debug: Current working directory: {os.getcwd()}")
-print(f"Debug: Looking for .env file at: {os.path.join(os.path.dirname(__file__), 'vision', '.env')}")
+print(f"Debug: Looking for .env file at: {os.path.join(os.path.dirname(__file__), '.env')}")
 print(f"Debug: FISH_API_KEY loaded: {bool(FISH_API_KEY)}")
-print(f"Debug: FISH_MODEL_ID loaded: {bool(FISH_MODEL_ID)}")
+print(f"Debug: FISH_MODEL_ID loaded: {bool(FISH_MODEL_IDS[0])}")
+print(f"Debug: VAPI_API_KEY loaded: {bool(VAPI_API_KEY)}")
+print(f"Debug: VAPI_PHONE_NUMBER_ID loaded: {bool(VAPI_PHONE_NUMBER_ID)}")
+print(f"Debug: VAPI_SLACK_OFF_ASSISTANT_ID loaded: {bool(VAPI_SLACK_OFF_ASSISTANT_ID)}")
 
 # Sleep detection variables
 sleep_start_time = None
 SLEEP_THRESHOLD = 5  # 5 seconds for testing (was 60)
 alert_triggered = False
+current_task = "work"  # Store current task for personalized messages
+
+# Absence detection variables
+absence_start_time = None
+ABSENCE_THRESHOLD = 30  # 30 seconds before calling user
+absence_alert_triggered = False
+absence_countdown = None  # Track countdown for absence
+
+# Base wake-up messages (used as fallback or inspiration)
+WAKE_UP_MESSAGES = [
+    "WAKE UP YOU LAZY BUM! Stop sleeping and get back to work! You're wasting time and being completely unproductive! Your mom would be so disappointed in you right now!",
+    "GET UP RIGHT NOW! You're being incredibly lazy and wasting precious time! This is unacceptable behavior! Get your act together immediately!",
+    "SLEEP IS FOR THE WEAK! Wake up this instant! You have important work to do and here you are napping like a sloth! Your future self will hate you!",
+    "WHAT IS WRONG WITH YOU?! Get your butt out of dreamland and back to reality! You're ruining your productivity streak!",
+    "WAKE UP YOU SLEEPING DISASTER! You have responsibilities and here you are taking a nap! This is completely unprofessional and lazy!",
+    "ALERT! LAZINESS DETECTED! Wake up before I report this to your future employer! Get moving and start being productive like a responsible adult!",
+]
+
+def generate_personalized_message(activity="work"):
+    """Generate a personalized wake-up message using Gemini."""
+    if not GEMINI_API_KEY:
+        # Use fallback if Gemini is not configured
+        import random
+        return random.choice(WAKE_UP_MESSAGES)
+    
+    try:
+        import requests
+        import json
+        
+        # Make a request to Gemini API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
+        
+        prompt = f"""Create a UNHINGED, EXTREMELY HARSH wake-up message for someone who fell asleep while doing {activity}. 
+
+Requirements:
+- Be MEAN and AGGRESSIVE but in a motivational way
+- Mention specific consequences of sleeping during {activity}
+- Make it personal and scathing
+- Use CAPS for emphasis
+- Keep it under 100 words
+- Be creative and make it memorable
+
+Generate ONLY the wake-up message, nothing else."""
+        
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
+        
+        response = requests.post(url, json=payload, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            message = data['candidates'][0]['content']['parts'][0]['text'].strip()
+            print(f"✨ Gemini generated personalized message: {message}")
+            return message
+        else:
+            print(f"Gemini API error: {response.status_code}")
+            raise Exception(f"Gemini API error: {response.status_code}")
+            
+    except Exception as e:
+        print(f"Error calling Gemini API: {e}")
+        # Fallback to random pre-written message
+        import random
+        return random.choice(WAKE_UP_MESSAGES)
 
 def generate_fish_audio(text, model_id=None):
-    """Generate audio using Fish Audio SDK."""
+    """Generate audio using Fish Audio SDK with random voice model."""
     print(f"generate_fish_audio called with text: {text}")
     
     if not FISH_API_KEY:
         print("Fish Audio API key not configured")
         return None
     
+    # Select random model if not specified
     if not model_id:
-        model_id = FISH_MODEL_ID
+        import random
+        available_models = [m for m in FISH_MODEL_IDS if m]  # Filter out empty strings
+        if available_models:
+            model_id = random.choice(available_models)
+        else:
+            print("Fish Audio model ID not configured")
+            return None
     
-    if not model_id:
-        print("Fish Audio model ID not configured")
-        return None
-    
-    print(f"Using API key: {FISH_API_KEY[:10]}...")
     print(f"Using model ID: {model_id}")
+    print(f"Using API key: {FISH_API_KEY[:10]}...")
     
     try:
         print("Importing fish_audio_sdk...")
@@ -125,6 +213,90 @@ def play_audio_alert(audio_data):
         import os
         os.system("afplay /System/Library/Sounds/Alarm.aiff" if os.name == "posix" else "echo \a")
 
+def get_user_phone_from_supabase():
+    """Get the user's phone number from Supabase."""
+    try:
+        import requests
+        
+        # Get the first user with a phone number from user_settings table
+        url = f"{SUPABASE_URL}/rest/v1/user_settings?select=your_phone&your_phone=not.is.null&limit=1"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=5)
+        print(f"🔍 Supabase response: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"📊 Users found: {len(data)}")
+            if data:
+                phone_number = data[0].get('your_phone', '')
+                print(f"📞 Retrieved user phone number: {phone_number}")
+                return phone_number
+            else:
+                print("No users with phone numbers found")
+        else:
+            print(f"Supabase query failed: {response.text}")
+        
+        return None
+        
+    except Exception as e:
+        print(f"Error fetching phone number from Supabase: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def call_user_vapi():
+    """Call the user via Vapi when they're slacking off."""
+    global absence_alert_triggered
+    
+    print("📞 call_user_vapi() called")
+    
+    if absence_alert_triggered:
+        print("📞 Call already triggered in this absence period, skipping")
+        return  # Only call once per absence period
+    
+    if not VAPI_API_KEY or not VAPI_PHONE_NUMBER_ID or not VAPI_SLACK_OFF_ASSISTANT_ID:
+        print("Vapi configuration missing, skipping call")
+        return
+    
+    # Get user's phone number from Supabase
+    user_phone = get_user_phone_from_supabase()
+    if not user_phone:
+        print("Could not retrieve user phone number from Supabase")
+        return
+    
+    try:
+        import requests
+        
+        url = "https://api.vapi.ai/call"
+        headers = {
+            "Authorization": f"Bearer {VAPI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "assistantId": VAPI_SLACK_OFF_ASSISTANT_ID,
+            "phoneNumberId": VAPI_PHONE_NUMBER_ID,
+            "customer": {
+                "number": user_phone
+            }
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"✅ Vapi call initiated successfully to {user_phone}")
+        else:
+            print(f"❌ Vapi call failed: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        print(f"Error calling Vapi: {e}")
+        import traceback
+        traceback.print_exc()
+
 def generate_frames():
     """Generate camera frames for video streaming."""
     global camera, camera_running
@@ -170,6 +342,7 @@ def generate_frames():
 def run_attention_analysis():
     """Run simple attention analysis with sleep detection."""
     global current_status, alert_countdown, alert_canceled, sleep_start_time, alert_triggered
+    global absence_start_time, absence_alert_triggered, absence_countdown
     
     import mediapipe as mp
     
@@ -248,8 +421,8 @@ def run_attention_analysis():
                     print(f"Sleep alert triggered after {sleep_duration:.1f} seconds")
                     alert_triggered = True
                     
-                    # Generate and play wake-up message
-                    wake_up_message = "WAKE UP YOU LAZY BUM! Stop sleeping and get back to work! You're wasting time and being completely unproductive! Your mom would be so disappointed in you right now! Get your act together and focus on your work immediately!"
+                    # Generate personalized wake-up message using Gemini
+                    wake_up_message = generate_personalized_message(current_task)
                     print(f"Generating wake-up audio: {wake_up_message}")
                     
                     audio_data = generate_fish_audio(wake_up_message)
@@ -269,11 +442,43 @@ def run_attention_analysis():
                 else:
                     alert_countdown = None
         else:
-            current_status = "Looking for face..."
+            # No face detected - user slacking off
+            current_status = "User slacking off"
+            
+            # Start absence timer if not already started
+            if absence_start_time is None:
+                absence_start_time = time.time()
+                print(f"User absent - started absence timer at {time.time()}")
+            
+            # Calculate absence duration
+            absence_duration = time.time() - absence_start_time
+            
+            # Set countdown for display (countdown from threshold to 0)
+            if absence_duration < ABSENCE_THRESHOLD and not absence_alert_triggered:
+                remaining_time = ABSENCE_THRESHOLD - absence_duration
+                absence_countdown = time.time() + remaining_time
+            else:
+                absence_countdown = None
+            
+            # Check if user has been absent for more than threshold
+            if absence_duration >= ABSENCE_THRESHOLD and not absence_alert_triggered:
+                print(f"🚨 User absent for {absence_duration:.1f} seconds (threshold: {ABSENCE_THRESHOLD}s) - calling via Vapi")
+                call_user_vapi()
+                absence_alert_triggered = True  # Set flag after calling to prevent repeated calls
+            
             # Reset sleep tracking when no face detected
             sleep_start_time = None
             alert_triggered = False
             alert_countdown = None
+        
+        # Reset absence tracking when face is detected
+        if results.multi_face_landmarks:
+            if absence_start_time is not None:
+                absence_duration = time.time() - absence_start_time
+                print(f"User returned after {absence_duration:.1f} seconds")
+            absence_start_time = None
+            absence_alert_triggered = False
+            absence_countdown = None
         
         time.sleep(0.5)  # Update every 500ms
     
@@ -292,10 +497,18 @@ def video_feed():
 @app.route('/status')
 def status():
     """Get current status and countdown."""
-    global alert_countdown, alert_canceled
+    global alert_countdown, alert_canceled, absence_countdown, current_status
     
     countdown_val = None
-    if alert_countdown is not None and not alert_canceled:
+    
+    # Prioritize absence countdown when user is slacking off
+    if "slacking off" in current_status.lower():
+        if absence_countdown is not None:
+            remaining = max(0, int(absence_countdown - time.time()))
+            if remaining > 0:
+                countdown_val = remaining
+    # Check for sleep countdown only if not slacking off
+    elif alert_countdown is not None and not alert_canceled:
         remaining = max(0, int(alert_countdown - time.time()))
         if remaining > 0:
             countdown_val = remaining
@@ -303,6 +516,8 @@ def status():
     status_type = "default"
     if "sleep" in current_status.lower():
         status_type = "sleeping"
+    elif "slacking off" in current_status.lower():
+        status_type = "slacking_off"
     elif "focused" in current_status.lower() or "alert" in current_status.lower():
         status_type = "focused"
     
@@ -321,6 +536,21 @@ def cancel_alert():
     sleep_start_time = None
     alert_triggered = False
     return jsonify({"success": True})
+
+
+@app.route('/update_task', methods=['POST'])
+def update_task():
+    """Update the current task for personalized messages."""
+    global current_task
+    
+    from flask import request
+    data = request.get_json()
+    if data and 'task' in data:
+        current_task = data['task']
+        print(f"📝 Task updated to: {current_task}")
+        return jsonify({"success": True, "task": current_task})
+    
+    return jsonify({"success": False, "error": "No task provided"})
 
 
 @app.route('/start_session', methods=['POST'])
