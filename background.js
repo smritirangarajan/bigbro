@@ -1776,11 +1776,30 @@ async function handleQuizCompletion(results) {
   try {
     console.log('📊 Quiz completed, updating Supabase with results:', results);
     
-    // Get user ID from storage
-    const { userId } = await chrome.storage.local.get(['userId']);
+    // Get user ID from active session in Supabase
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('❌ Failed to get user ID from Supabase');
+      return;
+    }
+    
+    const data = await response.json();
+    let userId = null;
+    
+    if (data && data.length > 0 && data[0].user_id) {
+      userId = data[0].user_id;
+      console.log('📊 Got user ID from Supabase:', userId);
+    }
     
     if (!userId) {
-      console.log('❌ No user ID found, cannot update quiz stats');
+      console.log('❌ No user ID found in active session');
       return;
     }
     
@@ -1792,6 +1811,8 @@ async function handleQuizCompletion(results) {
     
     // Update each answer in Supabase
     for (const result of results) {
+      console.log('📊 Updating question result:', result.isCorrect ? 'correct' : 'incorrect');
+      
       const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_quiz_stats`, {
         method: 'POST',
         headers: {
@@ -1805,8 +1826,13 @@ async function handleQuizCompletion(results) {
         })
       });
       
+      console.log('📊 Response status:', response.status);
+      
       if (!response.ok) {
-        console.error('❌ Failed to update quiz stat for question');
+        const errorText = await response.text();
+        console.error('❌ Failed to update quiz stat for question:', errorText);
+      } else {
+        console.log('✅ Quiz stat updated successfully');
       }
     }
     
