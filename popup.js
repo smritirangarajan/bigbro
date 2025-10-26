@@ -268,10 +268,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     strikeCount.textContent = strikes;
     callCount.textContent = calls;
     
-    // Load quiz mode toggle state (default to off)
+    // Load quiz mode toggle state (default to off - explicit false)
     console.log('🔄 Loading quiz mode state from storage:', result.quizMode);
-    quizModeToggle.checked = result.quizMode === true;
+    
+    // Explicitly set to false if undefined or explicitly false
+    const shouldBeOn = result.quizMode === true;
+    console.log('🔄 Quiz mode should be ON?', shouldBeOn);
+    
+    quizModeToggle.checked = shouldBeOn;
     console.log('🔄 Quiz mode toggle set to:', quizModeToggle.checked);
+    
+    // If it was undefined or false, explicitly set it to false in storage
+    if (result.quizMode === undefined || result.quizMode === false) {
+      console.log('🔄 Explicitly setting quiz mode to false in storage');
+      await chrome.storage.local.set({ quizMode: false });
+    }
     
     // Load video monitor toggle state
     videoMonitorToggle.checked = result.videoMonitorEnabled || false;

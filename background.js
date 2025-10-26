@@ -1,6 +1,7 @@
 
 // Import configuration from config.js
 importScripts('config.js');
+importScripts('supabase-ext.js');
 
 let monitoringInterval = null;
 let lettaAgentId = LETTA_AGENT_ID;
@@ -62,7 +63,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'quizAnswer') {
     // This is already handled in the onMessage listener below
   } else if (message.action === 'processScreenshot') {
-    processScreenshotWithClaude(message.screenshot, message.url, message.title);
+    // Skipping screenshot processing - using text content only
+    console.log('📸 DEBUG: Screenshot processing skipped, using text content instead');
   } else if (message.action === 'screenshotFailed') {
     console.log('Screenshot capture failed:', message.error);
   }
@@ -1241,6 +1243,14 @@ async function callUserAway() {
     if (response.ok) {
       const responseData = await response.json();
       console.log('✅ Away call initiated successfully:', responseData);
+      
+      // Increment calls counter in Supabase
+      try {
+        await incrementCalls();
+        console.log('📞 Calls incremented in Supabase for away call');
+      } catch (error) {
+        console.error('❌ Error incrementing calls:', error);
+      }
     } else {
       const errorText = await response.text();
       console.error('❌ Failed to call user. Status:', response.status, 'Error:', errorText);
@@ -1287,8 +1297,22 @@ chrome.runtime.onInstalled.addListener(() => {
     checks: 0,
     isMonitoring: false,
     isRecording: false,
-    currentTabProductivity: 'Unknown'
+    currentTabProductivity: 'Unknown',
+    quizMode: false,
+    videoMonitorEnabled: false,
+    taskMonitoringEnabled: false
   });
+});
+
+// On startup, ensure quiz mode is off if not explicitly enabled
+chrome.storage.local.get(['quizMode']).then((result) => {
+  if (result.quizMode === undefined || result.quizMode === null) {
+    console.log('🔄 Quiz mode not set, initializing to false');
+    chrome.storage.local.set({ quizMode: false });
+  } else if (!result.quizMode && quizModeEnabled) {
+    console.log('🔄 Quiz mode was disabled, stopping');
+    stopQuizMode();
+  }
 });
 
 // Log when service worker starts
@@ -1313,6 +1337,10 @@ let quizModeEnabled = false;
 let quizContentCache = [];
 let quizTimer = null;
 let nextQuizTime = 0;
+
+// Initialize quiz mode to off on startup
+quizModeEnabled = false;
+console.log('🔄 Quiz mode initialized to OFF on startup');
 
 function startQuizMode() {
   console.log('📝 Starting quiz mode');
@@ -1795,79 +1823,4 @@ async function getUserID() {
   return userId;
 }
 
-// Process screenshot with Claude Vision for content extraction
-async function processScreenshotWithClaude(screenshot, url, title) {
-  try {
-    console.log('📸 Processing screenshot with Claude Vision...');
-    
-    // Extract base64 image data
-    const base64Image = screenshot.split(',')[1];
-    
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/png',
-                data: base64Image
-              }
-            },
-            {
-              type: 'text',
-              text: 'Please extract all readable text content from this screenshot. Include only the main content that would be useful for learning - ignore navigation, ads, and UI elements. Return the text in a clean format.'
-            }
-          ]
-        }]
-      })
-    });
-    
-    const data = await response.json();
-    const extractedText = data.content[0].text;
-    
-    console.log('📝 Extracted text from screenshot:', extractedText.substring(0, 100) + '...');
-    
-    // Store in ChromaDB via backend service
-    await storeInChromaDB(extractedText, url, title);
-    
-  } catch (error) {
-    console.error('Error processing screenshot with Claude:', error);
-  }
-}
-
-// Store content in ChromaDB using Python backend
-async function storeInChromaDB(content, url, title) {
-  try {
-    // Call a local API endpoint (we'll create a simple Python server for this)
-    const response = await fetch('http://localhost:5000/store-content', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        content: content,
-        url: url,
-        title: title
-      })
-    });
-    
-    if (response.ok) {
-      console.log('✅ Content stored in ChromaDB');
-    } else {
-      console.log('Failed to store in ChromaDB (backend may not be running)');
-    }
-  } catch (error) {
-    console.log('ChromaDB storage failed (backend may not be running):', error.message);
-  }
-}
+// ChromaDB removed - quiz mode now uses simple in-memory caching with Claude/Gemini only

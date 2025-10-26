@@ -62,25 +62,9 @@ function stopQuizModeCapture() {
 async function capturePageContent() {
   console.log('📸 DEBUG: capturePageContent called');
   
-  // Capture screenshot first for Claude Vision
-  try {
-    console.log('📸 DEBUG: Attempting to capture screenshot...');
-    const screenshot = await captureScreenshot();
-    console.log('📸 DEBUG: Screenshot captured, length:', screenshot.length);
-    
-    // Send screenshot to background for Claude Vision processing
-    chrome.runtime.sendMessage({
-      action: 'processScreenshot',
-      screenshot: screenshot,
-      url: window.location.href,
-      title: document.title
-    });
-    console.log('📸 DEBUG: Screenshot sent to background script');
-  } catch (error) {
-    console.error('❌ Error capturing screenshot:', error);
-  }
+  // Skip screenshot capture - just use text content
   
-  // Also capture text content as fallback
+  // Capture text content
   const mainSelectors = [
     'article',
     'main',
@@ -118,9 +102,13 @@ async function capturePageContent() {
     .trim()
     .substring(0, 2000);
   
+  console.log('📥 DEBUG: Clean text length:', cleanText.length);
+  console.log('📥 DEBUG: Text sample:', cleanText.substring(0, 100));
+  
   if (cleanText.length >= 50) {
     console.log('📥 DEBUG: Clean text length:', cleanText.length);
     console.log('📥 DEBUG: Current URL:', window.location.href);
+    console.log('📥 DEBUG: Sending content to background script...');
     
     // Send to background for ChromaDB storage
     chrome.runtime.sendMessage({
@@ -130,11 +118,17 @@ async function capturePageContent() {
       title: document.title
     }, (response) => {
       console.log('📥 DEBUG: Response from background:', response);
+      if (chrome.runtime.lastError) {
+        console.error('📥 ERROR: Send message failed:', chrome.runtime.lastError.message);
+      } else {
+        console.log('📥 ✅ Content sent successfully to background');
+      }
     });
     
     console.log('📥 Captured content for quiz:', cleanText.substring(0, 100) + '...');
   } else {
     console.log('📥 DEBUG: Text too short, length:', cleanText.length);
+    console.log('📥 DEBUG: Skipping content capture');
   }
 }
 
@@ -337,7 +331,7 @@ async function detectFaceWithClaude(imageData) {
     // Remove the data URL prefix
     const base64Image = imageData.split(',')[1];
     
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -367,7 +361,7 @@ async function detectFaceWithClaude(imageData) {
       })
     });
     
-    const data = await response.json();
+    const data = await apiResponse.json();
     console.log('📹 Claude vision response:', data);
     
     if (data.content && data.content[0] && data.content[0].text) {
