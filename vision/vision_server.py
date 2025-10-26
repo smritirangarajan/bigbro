@@ -332,20 +332,26 @@ def call_user_vapi():
     """Call the user via Vapi when they're away."""
     global absence_alert_triggered
     
-    print("📞 call_user_vapi() called")
+    print("📞📞📞 [ABSENCE CALL] call_user_vapi() called 📞📞📞")
     
     if absence_alert_triggered:
-        print("📞 Call already triggered in this absence period, skipping")
+        print("📞 [ABSENCE CALL] Call already triggered in this absence period, skipping")
         return
     
+    print(f"📞 [ABSENCE CALL] VAPI_API_KEY: {bool(VAPI_API_KEY)}")
+    print(f"📞 [ABSENCE CALL] VAPI_PHONE_NUMBER_ID: {bool(VAPI_PHONE_NUMBER_ID)}")
+    print(f"📞 [ABSENCE CALL] VAPI_SLACK_OFF_ASSISTANT_ID: {bool(VAPI_SLACK_OFF_ASSISTANT_ID)}")
+    
     if not VAPI_API_KEY or not VAPI_PHONE_NUMBER_ID or not VAPI_SLACK_OFF_ASSISTANT_ID:
-        print("Vapi configuration missing, skipping call")
+        print("❌ [ABSENCE CALL] Vapi configuration missing, skipping call")
         return
     
     user_phone = get_user_phone_from_supabase()
     if not user_phone:
-        print("Could not retrieve user phone number from Supabase")
+        print("❌ [ABSENCE CALL] Could not retrieve user phone number from Supabase")
         return
+    
+    print(f"📞 [ABSENCE CALL] Retrieved user phone: {user_phone}")
     
     try:
         import requests
@@ -364,15 +370,19 @@ def call_user_vapi():
             }
         }
         
+        print(f"📞 [ABSENCE CALL] Sending request to Vapi API...")
+        print(f"📞 [ABSENCE CALL] Phone number: {user_phone}")
+        print(f"📞 [ABSENCE CALL] Assistant ID: {VAPI_SLACK_OFF_ASSISTANT_ID}")
+        
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         
         if response.status_code == 200:
-            print(f"✅ Vapi call initiated successfully to {user_phone}")
+            print(f"✅ [ABSENCE CALL] Vapi call initiated successfully to {user_phone}")
         else:
-            print(f"❌ Vapi call failed: {response.status_code} - {response.text}")
+            print(f"❌ [ABSENCE CALL] Vapi call failed: {response.status_code} - {response.text}")
             
     except Exception as e:
-        print(f"Error calling Vapi: {e}")
+        print(f"❌ [ABSENCE CALL] Error calling Vapi: {e}")
         import traceback
         traceback.print_exc()
 
