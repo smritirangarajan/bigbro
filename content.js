@@ -11,6 +11,13 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     const alertMessage = `⚠️ STRIKE ADDED!\n\nYou're not on a productive website.\n\nYou've been on ${message.hostname} for 30+ seconds.\n\nTotal strikes: ${message.strikes}`;
     alert(alertMessage);
     sendResponse({ success: true });
+  } else if (message.action === 'getUserId') {
+    // Get user ID from meta tag on the page
+    const userIdMeta = document.querySelector('meta[name="user-id"]');
+    const userId = userIdMeta ? userIdMeta.content : null;
+    console.log('Content script - getUserID called, userId:', userId);
+    sendResponse({ userId });
+    return true; // Keep channel open
   } else if (message.action === 'checkWebcam') {
     // Handle webcam check and return image data
     try {

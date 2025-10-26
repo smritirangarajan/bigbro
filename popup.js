@@ -362,19 +362,21 @@ async function updateAttentionStatus() {
     // Update status text
     attentionText.textContent = data.status;
     
-    // Update status class
+    // Update status class based on status type
     attentionStatus.className = 'attention-status';
     if (data.statusType === 'focused') {
       attentionStatus.classList.add('status-focused');
     } else if (data.statusType === 'sleeping') {
       attentionStatus.classList.add('status-sleeping');
+    } else if (data.statusType === 'gone' || data.statusType === 'looking_away' || data.statusType === 'using_phone') {
+      attentionStatus.classList.add('status-default');
     } else {
       attentionStatus.classList.add('status-default');
     }
     
     // Handle countdown based on status type
-    if (data.statusType === 'slacking_off' && data.countdown && data.countdown > 0) {
-      // Show absence alert
+    if (data.statusType === 'gone' && data.countdown && data.countdown > 0) {
+      // Show absence alert (user gone)
       absenceAlert.style.display = 'block';
       sleepAlert.style.display = 'none';
       absenceCountdownTimer.textContent = data.countdown;
@@ -392,6 +394,7 @@ async function updateAttentionStatus() {
     console.error('Error updating attention status:', error);
     attentionText.textContent = 'Status unavailable';
     sleepAlert.style.display = 'none';
+    absenceAlert.style.display = 'none';
   }
 }
   
