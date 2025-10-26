@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const hasPhoneNumbers = phoneData && (phoneData.momPhone || phoneData.yourPhone);
       console.log('✅ Has phone numbers:', hasPhoneNumbers);
       
-      // Also check if session is active
-      const isSessionActive = await checkSessionActive();
+      // Check if session is active by checking vision server status
+      const isSessionActive = await checkVisionServerSession();
       console.log('📋 Session active:', isSessionActive);
       
       return hasPhoneNumbers && isSessionActive;
@@ -37,10 +37,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   
+  // Check if session is active by querying vision server
+  async function checkVisionServerSession() {
+    try {
+      const response = await fetch('http://localhost:8080/status');
+      if (!response.ok) return false;
+      
+      const data = await response.json();
+      // Session is active if vision server is running and session_active is true
+      return data.session_active === true;
+    } catch (error) {
+      console.log('Vision server not reachable:', error);
+      return false;
+    }
+  }
+  
   // Check login and show appropriate UI
   const isLoggedIn = await checkLoginStatus();
   console.log('🔐 Login status:', isLoggedIn);
   
+  // Only show main container if logged in AND session is active
   if (isLoggedIn) {
     console.log('✅ Logged in and session active - showing main UI');
     loginPrompt.style.display = 'none';
@@ -57,10 +73,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('✅ Loaded your phone:', phoneData.yourPhone);
     }
   } else {
-    console.log('❌ Not logged in - showing login prompt');
+    console.log('❌ Not logged in or session not active - showing login prompt');
     loginPrompt.style.display = 'block';
     mainContainer.style.display = 'none';
   }
+  
+  // Also periodically check if session becomes active
+  setInterval(async () => {
+    const isLoggedIn = await checkLoginStatus();
+    if (isLoggedIn) {
+      if (loginPrompt.style.display !== 'none') {
+        console.log('✅ Session now active - showing main UI');
+        loginPrompt.style.display = 'none';
+        mainContainer.style.display = 'block';
+      }
+    } else {
+      if (mainContainer.style.display !== 'none') {
+        console.log('❌ Session no longer active - showing login prompt');
+        loginPrompt.style.display = 'block';
+        mainContainer.style.display = 'none';
+      }
+    }
+  }, 2000); // Check every 2 seconds
   
   // Open web app button
   openWebappBtn.addEventListener('click', () => {
@@ -350,9 +384,9 @@ async function updateAttentionStatus() {
   }
 }
   
-  // Check camera section every second
+  // Check camera section periodically
   updateCameraSection();
-  setInterval(updateCameraSection, 1000);
+  setInterval(updateCameraSection, 2000);
   
 // Update attention status every 500ms
 setInterval(updateAttentionStatus, 500);
