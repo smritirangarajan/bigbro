@@ -50,7 +50,22 @@ document.getElementById('get-started-btn')?.addEventListener('click', () => {
   document.getElementById('signup-view').style.display = 'block';
 });
 
+document.getElementById('get-started-btn-header')?.addEventListener('click', () => {
+  showAuth();
+  // Show signup view by default
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('signup-view').style.display = 'block';
+});
+
 document.getElementById('login-link')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  showAuth();
+  // Show login view
+  document.getElementById('login-view').style.display = 'block';
+  document.getElementById('signup-view').style.display = 'none';
+});
+
+document.getElementById('login-link-header')?.addEventListener('click', (e) => {
   e.preventDefault();
   showAuth();
   // Show login view
