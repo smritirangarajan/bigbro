@@ -264,21 +264,54 @@ def get_user_phone_from_supabase():
         return None
 
 def increment_strikes_supabase():
-    """Increment strikes in Supabase."""
+    """Increment strikes in Supabase and check if call is needed."""
     try:
         import requests
         
-        url = f"{SUPABASE_URL}/rest/v1/rpc/increment_strikes"
+        # Get user_id from active session
+        sessions_url = f"{SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1"
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": "application/json"
         }
         
-        response = requests.post(url, headers=headers, timeout=5)
+        sessions_response = requests.get(sessions_url, headers=headers, timeout=5)
+        if sessions_response.status_code == 200:
+            sessions_data = sessions_response.json()
+            if sessions_data and len(sessions_data) > 0:
+                user_id = sessions_data[0].get('user_id')
+                print(f"👤 Found active user_id: {user_id}")
+            else:
+                print("❌ No active session found, cannot increment strikes")
+                return 0
+        else:
+            print(f"❌ Failed to get user_id: {sessions_response.status_code}")
+            return 0
+        
+        # Increment strikes for this user
+        url = f"{SUPABASE_URL}/rest/v1/rpc/increment_strikes"
+        response = requests.post(url, json={"user_id": user_id}, headers=headers, timeout=5)
         
         if response.status_code == 200:
-            print("✅ Strike incremented in Supabase")
+            data = response.json()
+            print(f"📊 Strike increment response: {data}")
+            
+            # Extract total_strikes from response
+            if isinstance(data, list) and len(data) > 0:
+                new_strike_count = data[0].get('total_strikes', 0)
+            elif isinstance(data, dict):
+                new_strike_count = data.get('total_strikes', 0)
+            else:
+                new_strike_count = 0
+            
+            print(f"✅ Strike incremented in Supabase. New total: {new_strike_count}")
+            
+            # Check if we should call after 2 strikes
+            if new_strike_count >= 2:
+                print(f"🚨 User has reached 2+ strikes. Calling now...")
+                call_user_vapi()
+                return new_strike_count
         else:
             print(f"❌ Failed to increment strike: {response.status_code}")
             
@@ -286,6 +319,8 @@ def increment_strikes_supabase():
         print(f"Error incrementing strikes: {e}")
         import traceback
         traceback.print_exc()
+    
+    return 0
 
 def call_user_vapi():
     """Call the user via Vapi when they're away."""

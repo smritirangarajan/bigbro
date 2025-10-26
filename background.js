@@ -554,27 +554,62 @@ async function checkTask() {
       console.log(`User has been on ${hostname} for 30+ seconds. Total strikes: ${newStrikes}`);
       
       // Update Supabase total_strikes
+      let supabaseStrikeCount = 0;
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_strikes`, {
-          method: 'POST',
+        // Get current user_id from Supabase
+        const userIdResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1`, {
+          method: 'GET',
           headers: {
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           }
         });
+        
+        if (userIdResponse.ok) {
+          const sessions = await userIdResponse.json();
+          if (sessions && sessions.length > 0) {
+            const user_id = sessions[0].user_id;
+            
+            const strikeResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_strikes`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ user_id: user_id })
+            });
+            
+            if (strikeResponse.ok) {
+              const strikeData = await strikeResponse.json();
+              console.log('📊 Strike increment response:', strikeData);
+              
+              if (Array.isArray(strikeData) && strikeData.length > 0) {
+                supabaseStrikeCount = strikeData[0].total_strikes;
+              } else if (strikeData && strikeData.total_strikes) {
+                supabaseStrikeCount = strikeData.total_strikes;
+              }
+              console.log('✅ Strike logged successfully! Supabase total_strikes:', supabaseStrikeCount);
+            }
+          }
+        }
       } catch (e) {
         console.log('Could not update Supabase strikes:', e);
       }
       
       console.log('✅ Strike logged successfully! Total strikes:', newStrikes);
       console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
+      console.log('📊 Supabase strike count:', supabaseStrikeCount);
       
-      // Call mom if we hit 3 strikes and haven't called yet
-      console.log('📞 Checking if should call mom... newStrikes:', newStrikes, '>= 3?', newStrikes >= 3, 'momCalled:', momCalled, '!momCalled:', !momCalled);
+      // Use supabaseStrikeCount if available, otherwise use newStrikes
+      const effectiveStrikeCount = supabaseStrikeCount > 0 ? supabaseStrikeCount : newStrikes;
       
-      if (newStrikes >= 3 && !momCalled) {
-        console.log('📞 3 strikes reached! Calling mom...');
+      // Call mom if we hit 2 strikes and haven't called yet
+      console.log('📞 Checking if should call mom... effectiveStrikeCount:', effectiveStrikeCount, '>= 2?', effectiveStrikeCount >= 2, 'momCalled:', momCalled);
+      
+      if (effectiveStrikeCount >= 2 && !momCalled) {
+        console.log('📞 2+ strikes reached! Calling mom...');
         console.log('📞 momCalled status before call:', momCalled);
         momCalled = true; // Set this FIRST to prevent duplicate calls
         console.log('📞 Set momCalled to true, now calling...');
