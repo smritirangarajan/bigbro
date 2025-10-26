@@ -6,7 +6,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1a4d2e;
   color: #333;
   min-height: 100vh;
 }
@@ -24,41 +24,44 @@ body {
 }
 
 .auth-container {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: white;
+  border-radius: 12px;
   padding: 40px;
   max-width: 400px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .auth-container h1 {
-  text-align: center;
+  text-align: left;
   margin-bottom: 30px;
-  font-size: 32px;
-  color: #333;
+  font-size: 28px;
+  color: #2c3e2d;
+  font-weight: 700;
 }
 
 .auth-container h2 {
   margin-bottom: 20px;
-  font-size: 22px;
-  color: #333;
+  font-size: 20px;
+  color: #2c3e2d;
+  font-weight: 600;
 }
 
 .input {
   width: 100%;
   padding: 12px;
   margin-bottom: 15px;
-  border: 2px solid #e0e0e0;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  background: white;
+  background: #f8f9fa;
   color: #333;
   font-size: 14px;
 }
 
 .input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #1a4d2e;
+  background: white;
 }
 
 .btn {
@@ -76,11 +79,11 @@ body {
   transform: translateY(-2px);
 }
 
-.btn-primary { background: #667eea; color: white; }
+.btn-primary { background: #1a4d2e; color: white; }
 .btn-secondary { background: #6c757d; color: white; }
 .btn-success { background: #28a745; color: white; }
 .btn-danger { background: #dc3545; color: white; }
-.btn-link { background: transparent; color: #667eea; text-decoration: underline; width: auto; }
+.btn-link { background: transparent; color: #1a4d2e; text-decoration: underline; width: auto; }
 
 .message {
   margin-top: 15px;

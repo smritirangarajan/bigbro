@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Task Monitor</title>
+  <title>BigBro</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -19,20 +19,22 @@
   <div id="main-container" class="container" style="display: none;">
     <h1>🎯 Task Monitor</h1>
     
-    <!-- Stats Section - Moved to Top -->
-    <div class="stats-section">
-      <h3>Strikes</h3>
-      <div class="stats-grid">
-        <div class="stat-item">
-          <span class="stat-label">Current Strikes:</span>
-          <span id="strike-count" class="stat-value">0</span>
-        </div>
+    <!-- Stats Section - Inline at Top -->
+    <div class="stats-inline">
+      <div class="stat-item-inline">
+        <span class="stat-label-inline">Strikes:</span>
+        <span id="strike-count" class="stat-value-inline">0</span>
+      </div>
+      <span class="stat-divider">|</span>
+      <div class="stat-item-inline">
+        <span class="stat-label-inline">Calls:</span>
+        <span id="call-count" class="stat-value-inline">0</span>
       </div>
     </div>
     
     <!-- Camera Feed Section -->
     <div id="camera-section" class="camera-section" style="display: none;">
-      <h3>🎥 Attention Monitor</h3>
+      <h3>Attention Monitor</h3>
       <div class="camera-container">
         <img id="camera-feed" src="" alt="Camera Feed" style="width: 100%; border-radius: 8px; display: none;">
         <div id="camera-placeholder" class="camera-placeholder">
@@ -40,7 +42,7 @@
         </div>
       </div>
          <div id="attention-status" class="attention-status status-default">
-           <span class="status-icon">👁️</span>
+           <span class="status-icon"></span>
            <span id="attention-text">Looking for face...</span>
          </div>
          <div id="sleep-alert" class="sleep-alert" style="display: none;">
