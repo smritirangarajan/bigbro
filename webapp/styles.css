@@ -76,34 +76,37 @@ body {
 }
 
 .landing-hero {
-  padding: 100px 40px;
+  padding: 60px 40px 80px;
   text-align: center;
-  max-width: 800px;
+  max-width: 720px;
   margin: 0 auto;
 }
 
 .landing-title {
-  font-size: 64px;
+  font-size: 54px;
   font-weight: 800;
   color: #111827;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
 
 .landing-tagline {
-  font-size: 22px;
+  font-size: 18px;
   color: #6b7280;
-  margin-bottom: 56px;
+  margin-bottom: 40px;
   font-weight: 400;
   line-height: 1.5;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .landing-features {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  margin-bottom: 56px;
+  gap: 24px;
+  margin-bottom: 40px;
   text-align: left;
   max-width: 600px;
   margin-left: auto;
@@ -116,7 +119,7 @@ body {
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  padding-bottom: 20px;
+  padding-bottom: 16px;
 }
 
 .feature-card:hover {
@@ -129,24 +132,25 @@ body {
 }
 
 .feature-card h3 {
-  font-size: 20px;
+  font-size: 18px;
   color: #111827;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .feature-card p {
   color: #6b7280;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .landing-cta {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
+  margin-top: 16px;
 }
 
 .btn-large {
@@ -527,25 +531,34 @@ body {
   }
   
   .landing-hero {
-    padding: 48px 24px;
+    padding: 40px 24px 60px;
   }
   
   .landing-title {
-    font-size: 32px;
+    font-size: 36px;
+    margin-bottom: 12px;
   }
   
   .landing-tagline {
     font-size: 16px;
+    margin-bottom: 32px;
   }
   
   .landing-features {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 20px;
+    margin-bottom: 32px;
   }
   
   .feature-card {
-    padding: 0;
-    border-bottom: 1px solid #1a4d2e;
+    padding-bottom: 12px;
+  }
+  
+  .feature-card h3 {
+    font-size: 16px;
+  }
+  
+  .feature-card p {
+    font-size: 14px;
   }
 }
 
