@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "Productivity Task Monitor",
+  "name": "BigBro",
   "version": "1.0.0",
-  "description": "Monitors your productivity by tracking if you're on task",
+  "description": "BigBro - Your Productivity Monitor",
   "permissions": [
     "storage",
     "activeTab",
     "tabs",
     "scripting",
     "notifications",
-    "desktopCapture"
+    "desktopCapture",
+    "tabCapture"
   ],
   "host_permissions": [
     "http://*/*",

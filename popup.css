@@ -520,3 +520,76 @@ h3 {
   font-weight: bold;
   color: #f57c00;
 }
+
+.quiz-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.quiz-section h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #2d6a4f;
+  border-bottom: 2px solid #2d6a4f;
+  padding-bottom: 6px;
+}
+
+.quiz-toggle-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 12px;
+}
+
+.quiz-toggle-label input[type="checkbox"] {
+  width: 52px;
+  height: 28px;
+  appearance: none;
+  background: #d1d5db;
+  border-radius: 14px;
+  position: relative;
+  transition: background 0.3s ease;
+  margin-right: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.quiz-toggle-label input[type="checkbox"]:checked {
+  background: #2d6a4f;
+}
+
+.quiz-toggle-label input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.3s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.quiz-toggle-label input[type="checkbox"]:checked::before {
+  transform: translateX(24px);
+  box-shadow: 0 2px 6px rgba(45, 106, 79, 0.4);
+}
+
+.quiz-toggle-text {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.quiz-description {
+  font-size: 13px;
+  color: #666;
+  margin-top: 8px;
+  padding-left: 64px;
+  line-height: 1.5;
+}
