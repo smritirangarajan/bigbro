@@ -379,7 +379,7 @@ def call_user_vapi():
         
         print(f"📞 [ABSENCE CALL] Response status: {response.status_code}")
         
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             print(f"✅ [ABSENCE CALL] Vapi call initiated successfully to {user_phone}")
         else:
             print(f"❌ [ABSENCE CALL] Vapi call failed: {response.status_code} - {response.text}")
