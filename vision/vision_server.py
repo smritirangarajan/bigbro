@@ -292,9 +292,9 @@ def increment_strikes_supabase():
         # Increment strikes for this user
         url = f"{SUPABASE_URL}/rest/v1/rpc/increment_strikes"
         print(f"📤 Calling Supabase RPC: {url}")
-        print(f"📤 Request body: {{'user_id': '{user_id}'}}")
+        print(f"📤 Request body: {{'target_user_id': '{user_id}'}}")
         
-        response = requests.post(url, json={"user_id": user_id}, headers=headers, timeout=5)
+        response = requests.post(url, json={"target_user_id": user_id}, headers=headers, timeout=5)
         
         print(f"📤 Response status: {response.status_code}")
         print(f"📤 Response text: {response.text[:200]}")
