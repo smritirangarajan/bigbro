@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const stopTaskBtn = document.getElementById('stop-task-btn');
   const currentTaskDisplay = document.getElementById('current-task');
   const strikeCount = document.getElementById('strike-count');
+  const callCount = document.getElementById('call-count');
   const monitoringIndicator = document.getElementById('monitoring-indicator');
   const monitoringText = document.getElementById('monitoring-text');
   const openWebappBtn = document.getElementById('open-webapp-btn');
@@ -103,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load current state
   async function loadState() {
-    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber']);
+    const result = await chrome.storage.local.get(['currentTask', 'isMonitoring', 'isPaused', 'strikes', 'checks', 'momPhoneNumber', 'yourPhoneNumber', 'calls']);
     
     if (result.currentTask) {
       currentTaskDisplay.innerHTML = `<p class="task-text">${result.currentTask}</p>`;
@@ -154,7 +155,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     const strikes = result.strikes || 0;
+    const calls = result.calls || 0;
     strikeCount.textContent = strikes;
+    callCount.textContent = calls;
   }
 
   // Set task
