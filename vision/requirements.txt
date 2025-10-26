@@ -2,7 +2,7 @@ mediapipe==0.10.14
 numpy==1.26.4
 opencv-python==4.10.0.84
 python-dotenv==1.0.1
-simpleaudio==1.0.4
+# simpleaudio==1.0.4 # this is only in attention_monitor/audio.py
 
 flask==2.3.2
 flask-cors==3.0.10

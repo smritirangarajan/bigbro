@@ -552,33 +552,41 @@ async function updateAttentionStatus() {
     attentionStatus.className = 'attention-status';
     if (data.statusType === 'focused') {
       attentionStatus.classList.add('status-focused');
+      attentionStatus.innerHTML = '<span class="status-icon">✅</span><span id="attention-text">Focused - Great work!</span>';
     } else if (data.statusType === 'sleeping') {
       attentionStatus.classList.add('status-sleeping');
-    } else if (data.statusType === 'gone' || data.statusType === 'looking_away' || data.statusType === 'using_phone') {
+      if (data.countdown && data.countdown > 0) {
+        attentionStatus.innerHTML = `<span class="status-icon">😴</span><span id="attention-text">Sleeping - ${data.consequence} in ${data.countdown}s</span>`;
+      } else {
+        attentionStatus.innerHTML = '<span class="status-icon">😴</span><span id="attention-text">Sleeping</span>';
+      }
+    } else if (data.statusType === 'looking_away') {
       attentionStatus.classList.add('status-default');
+      if (data.countdown && data.countdown > 0) {
+        attentionStatus.innerHTML = `<span class="status-icon">👀</span><span id="attention-text">Looking away - ${data.consequence} in ${data.countdown}s</span>`;
+      } else {
+        attentionStatus.innerHTML = '<span class="status-icon">👀</span><span id="attention-text">Looking away</span>';
+      }
+    } else if (data.statusType === 'not_present') {
+      attentionStatus.classList.add('status-default');
+      if (data.countdown && data.countdown > 0) {
+        attentionStatus.innerHTML = `<span class="status-icon">👻</span><span id="attention-text">Not present - ${data.consequence} in ${data.countdown}s</span>`;
+      } else {
+        attentionStatus.innerHTML = '<span class="status-icon">👻</span><span id="attention-text">Not present</span>';
+      }
     } else {
       attentionStatus.classList.add('status-default');
+      attentionStatus.innerHTML = `<span class="status-icon">👁️</span><span id="attention-text">${data.status}</span>`;
     }
     
-    // Handle countdown based on status type
-    if (data.statusType === 'gone' && data.countdown && data.countdown > 0) {
-      // Show absence alert (user gone)
-      absenceAlert.style.display = 'block';
-      sleepAlert.style.display = 'none';
-      absenceCountdownTimer.textContent = data.countdown;
-    } else if (data.statusType === 'sleeping' && data.countdown && data.countdown > 0) {
-      // Show sleep alert
-      sleepAlert.style.display = 'block';
-      absenceAlert.style.display = 'none';
-      countdownTimer.textContent = data.countdown;
-    } else {
-      // Hide both alerts
-      sleepAlert.style.display = 'none';
-      absenceAlert.style.display = 'none';
-    }
+    // Hide the old popup alerts since we now have persistent status bar
+    sleepAlert.style.display = 'none';
+    absenceAlert.style.display = 'none';
+    
   } catch (error) {
     console.error('Error updating attention status:', error);
-    attentionText.textContent = 'Status unavailable';
+    attentionStatus.className = 'attention-status status-default';
+    attentionStatus.innerHTML = '<span class="status-icon">❓</span><span id="attention-text">Status unavailable</span>';
     sleepAlert.style.display = 'none';
     absenceAlert.style.display = 'none';
   }
