@@ -164,30 +164,11 @@ async function loadDashboard() {
   
   const { data } = await supabase
     .from('user_settings')
-    .select('total_strikes, total_calls, mom_phone, your_phone, quiz_accuracy, total_quiz_questions, correct_quiz_answers')
+    .select('mom_phone, your_phone')
     .eq('user_id', currentUser.id)
     .single();
   
   if (data) {
-    document.getElementById('total-strikes').textContent = data.total_strikes || 0;
-    document.getElementById('total-calls').textContent = data.total_calls || 0;
-    
-    // Quiz stats
-    const totalQuizQuestions = data.total_quiz_questions || 0;
-    const correctAnswers = data.correct_quiz_answers || 0;
-    const quizAccuracy = totalQuizQuestions > 0 
-      ? ((correctAnswers / totalQuizQuestions) * 100).toFixed(1)
-      : 0;
-    
-    // Update quiz stats display if elements exist
-    const quizAccuracyEl = document.getElementById('quiz-accuracy');
-    const quizQuestionsEl = document.getElementById('total-quiz-questions');
-    const quizCorrectEl = document.getElementById('correct-quiz-answers');
-    
-    if (quizAccuracyEl) quizAccuracyEl.textContent = `${quizAccuracy}%`;
-    if (quizQuestionsEl) quizQuestionsEl.textContent = totalQuizQuestions;
-    if (quizCorrectEl) quizCorrectEl.textContent = correctAnswers;
-    
     // Load phone numbers into settings
     document.getElementById('mom-phone').value = data.mom_phone || '';
     document.getElementById('your-phone').value = data.your_phone || '';
