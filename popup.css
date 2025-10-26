@@ -389,15 +389,15 @@ h3 {
 .camera-section {
   margin-bottom: 24px;
   padding: 16px;
-  background: #d1e7dd;
+  background: #f5f5f5;
   border-radius: 8px;
-  border: 2px solid #1a4d2e;
+  border: 2px solid #e0e0e0;
 }
 
 .camera-section h3 {
   margin: 0 0 12px 0;
   font-size: 16px;
-  color: #1a4d2e;
+  color: #333;
   font-weight: bold;
 }
 
