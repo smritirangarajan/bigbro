@@ -497,7 +497,7 @@ def video_feed():
 @app.route('/status')
 def status():
     """Get current status and countdown."""
-    global alert_countdown, alert_canceled, absence_countdown, current_status
+    global alert_countdown, alert_canceled, absence_countdown, current_status, session_active
     
     countdown_val = None
     
@@ -524,7 +524,8 @@ def status():
     return jsonify({
         "status": current_status,
         "statusType": status_type,
-        "countdown": countdown_val
+        "countdown": countdown_val,
+        "session_active": session_active
     })
 
 

@@ -229,10 +229,16 @@ document.getElementById('start-session-btn')?.addEventListener('click', async ()
 });
 
 document.getElementById('stop-session-btn')?.addEventListener('click', async () => {
+  const startBtn = document.getElementById('start-session-btn');
+  
   // Session stopped
-  document.getElementById('start-session-btn').style.display = 'inline-block';
+  startBtn.style.display = 'inline-block';
   document.getElementById('stop-session-btn').style.display = 'none';
   isSessionActive = false;
+  
+  // Reset button state in case it was stuck on "Starting..."
+  startBtn.textContent = 'Start Session';
+  startBtn.disabled = false;
   
   // Remove session state
   localStorage.removeItem('isSessionActive');
