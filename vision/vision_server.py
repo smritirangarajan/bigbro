@@ -572,15 +572,18 @@ def run_attention_analysis():
             
             absence_duration = time.time() - absence_start_time
             
-            if absence_duration < ABSENCE_THRESHOLD and not absence_alert_triggered:
-                absence_countdown = time.time() + (ABSENCE_THRESHOLD - absence_duration)
-            else:
+            # Set countdown if we haven't triggered the alert yet
+            if not absence_alert_triggered and absence_duration < ABSENCE_THRESHOLD:
+                remaining_time = ABSENCE_THRESHOLD - absence_duration
+                absence_countdown = time.time() + remaining_time
+                print(f"⏳ User absent - {remaining_time:.1f}s until call")
+            elif not absence_alert_triggered:
                 absence_countdown = None
-            
-            if absence_duration >= ABSENCE_THRESHOLD and not absence_alert_triggered:
                 print(f"🚨 User absent for {absence_duration:.1f}s - calling via Vapi")
                 call_user_vapi()
                 absence_alert_triggered = True
+            else:
+                absence_countdown = None
             
             # Reset other timers when not present
             sleep_start_time = None
