@@ -628,6 +628,12 @@ async function checkTask() {
       console.log('📊 Current newStrikes:', newStrikes, 'momCalled:', momCalled);
       console.log('📊 Supabase strike count:', supabaseStrikeCount);
       
+      // Update local strikes to match Supabase count for display
+      if (supabaseStrikeCount > 0) {
+        await chrome.storage.local.set({ strikes: supabaseStrikeCount });
+        console.log('📊 Updated local strikes to match Supabase:', supabaseStrikeCount);
+      }
+      
       // Use supabaseStrikeCount if available, otherwise use newStrikes
       const effectiveStrikeCount = supabaseStrikeCount > 0 ? supabaseStrikeCount : newStrikes;
       
@@ -645,12 +651,13 @@ async function checkTask() {
         await chrome.storage.local.set({ momCalled: true }); // Persist to storage
         console.log('📞 [CALL DEBUG] Set momCalled to true, now calling...');
         
-        // Reset display strikes to 0 but keep tracking in backend
-        await chrome.storage.local.set({ strikes: 0 });
-        
         console.log('📞 [CALL DEBUG] About to call callMom() with task:', currentTask);
         await callMom(currentTask);
         console.log('📞 [CALL DEBUG] Call completed');
+        
+        // Reset display strikes to 0 AFTER the call is completed
+        await chrome.storage.local.set({ strikes: 0 });
+        console.log('📞 [CALL DEBUG] Reset local strikes to 0 after successful call');
       } else {
         console.log('📞 [CALL DEBUG] Skipping call');
         console.log('📞 [CALL DEBUG] - effectiveStrikeCount:', effectiveStrikeCount);
