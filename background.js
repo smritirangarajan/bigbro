@@ -628,7 +628,56 @@ Respond with only "ON_TASK" or "OFF_TASK".`
     
     console.log('Claude response:', result);
     
-    return result === 'ON_TASK';
+    const isOnTask = result === 'ON_TASK';
+    
+    // Now get justification from Claude
+    try {
+      const justificationResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 150,
+          messages: [{
+            role: 'user',
+            content: `The user is working on: "${task}"
+
+Their current browser tab shows:
+- Title: "${pageInfo.title}"
+- URL: ${pageInfo.url}
+
+You've determined they are ${isOnTask ? 'ON TASK' : 'OFF TASK'}.
+
+${isOnTask 
+  ? 'Write a brief positive message encouraging them. Use variety - examples: "Good job staying focused!", "Way to tackle your task!", "Nice work on staying productive!"'
+  : 'Write a brief message questioning if this is the best use of their time. Use variety and be direct - examples: "Is this really helping you complete your task?", "Don\'t you think you should be working on your task instead?", "This doesn\'t seem aligned with your goals."'}
+
+Keep it under 60 characters and make it feel natural.`
+          }]
+        })
+      });
+      
+      const justificationData = await justificationResponse.json();
+      
+      if (justificationData.content && justificationData.content[0]) {
+        const justification = justificationData.content[0].text.trim();
+        // Store justification in chrome.storage
+        await chrome.storage.local.set({ 
+          productivityJustification: justification,
+          currentTabProductivity: isOnTask ? 'Productive' : 'Unproductive'
+        });
+        console.log('Productivity justification:', justification);
+      }
+    } catch (error) {
+      console.error('Error getting justification:', error);
+    }
+    
+    return isOnTask;
     
   } catch (error) {
     console.error('Claude API error:', error);
