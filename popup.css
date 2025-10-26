@@ -447,3 +447,26 @@ h3 {
 .btn-awake:active {
   background: #3d8b40;
 }
+
+/* Absence Alert Styles */
+.absence-alert {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(255, 152, 0, 0.1);
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.absence-alert .alert-countdown {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ff9800;
+}
+
+#absence-countdown-timer {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f57c00;
+}

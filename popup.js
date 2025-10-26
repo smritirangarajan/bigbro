@@ -281,6 +281,9 @@ const attentionText = document.getElementById('attention-text');
 const sleepAlert = document.getElementById('sleep-alert');
 const countdownTimer = document.getElementById('countdown-timer');
 const imAwakeBtn = document.getElementById('im-awake-btn');
+const absenceAlert = document.getElementById('absence-alert');
+const absenceCountdownTimer = document.getElementById('absence-countdown-timer');
+const imBackBtn = document.getElementById('im-back-btn');
   
   // Check if session is active and show camera section
   async function updateCameraSection() {
@@ -324,12 +327,21 @@ async function updateAttentionStatus() {
       attentionStatus.classList.add('status-default');
     }
     
-    // Handle sleep alert countdown
-    if (data.countdown && data.countdown > 0) {
+    // Handle countdown based on status type
+    if (data.statusType === 'slacking_off' && data.countdown && data.countdown > 0) {
+      // Show absence alert
+      absenceAlert.style.display = 'block';
+      sleepAlert.style.display = 'none';
+      absenceCountdownTimer.textContent = data.countdown;
+    } else if (data.statusType === 'sleeping' && data.countdown && data.countdown > 0) {
+      // Show sleep alert
       sleepAlert.style.display = 'block';
+      absenceAlert.style.display = 'none';
       countdownTimer.textContent = data.countdown;
     } else {
+      // Hide both alerts
       sleepAlert.style.display = 'none';
+      absenceAlert.style.display = 'none';
     }
   } catch (error) {
     console.error('Error updating attention status:', error);
@@ -357,6 +369,21 @@ imAwakeBtn.addEventListener('click', async () => {
     }
   } catch (error) {
     console.error('Error cancelling sleep alert:', error);
+  }
+});
+
+// Handle "I'm Back!" button click (for absence alert)
+imBackBtn.addEventListener('click', async () => {
+  try {
+    const response = await fetch('http://localhost:8080/cancel_alert', { method: 'POST' });
+    const data = await response.json();
+    
+    if (data.success) {
+      absenceAlert.style.display = 'none';
+      console.log('Absence alert cancelled');
+    }
+  } catch (error) {
+    console.error('Error cancelling absence alert:', error);
   }
 });
 });
