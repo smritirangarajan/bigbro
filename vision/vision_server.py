@@ -218,8 +218,8 @@ def get_user_phone_from_supabase():
     try:
         import requests
         
-        # First, get the user_id from active_sessions table
-        sessions_url = f"{SUPABASE_URL}/rest/v1/active_sessions?select=user_id&is_active=eq.true&limit=1"
+        # First, get the user_id from user_sessions table
+        sessions_url = f"{SUPABASE_URL}/rest/v1/user_sessions?select=user_id&is_active=eq.true&limit=1"
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
