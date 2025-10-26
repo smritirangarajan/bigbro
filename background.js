@@ -9,6 +9,8 @@ let tabStartTime = null;
 let pendingCheck = null;
 let momCalled = false;
 let lastStrikeTime = null;
+let pausedAt = null;
+let totalPausedTime = 0;
 
 // Initialize lastStrikeTime from storage on service worker start
 chrome.storage.local.get(['lastStrikeTime']).then(({ lastStrikeTime: stored }) => {
@@ -26,8 +28,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     stopMonitoring();
   } else if (message.action === 'pauseMonitoring') {
     console.log('⏸️ Monitoring paused');
+    pausedAt = Date.now();
+    // Clear any pending strike check
+    if (pendingCheck) {
+      clearTimeout(pendingCheck);
+      pendingCheck = null;
+    }
   } else if (message.action === 'resumeMonitoring') {
     console.log('▶️ Monitoring resumed');
+    if (pausedAt) {
+      const pauseDuration = Date.now() - pausedAt;
+      totalPausedTime += pauseDuration;
+      pausedAt = null;
+      console.log(`⏱️ Was paused for ${Math.floor(pauseDuration / 1000)}s, total paused: ${Math.floor(totalPausedTime / 1000)}s`);
+    }
+    // Trigger immediate check to resume countdown
+    checkTask();
   } else if (message.action === 'getConfig') {
     // Send config to content script
     sendResponse({
@@ -54,6 +70,10 @@ async function startMonitoring() {
   tabStartTime = null;
   momCalled = false;
   lastStrikeTime = null;
+  
+  // Reset pause tracking
+  pausedAt = null;
+  totalPausedTime = 0;
   
   // Reset away call flag
   await chrome.storage.local.set({ awayCallMade: false });
@@ -272,6 +292,10 @@ async function stopMonitoring() {
   currentTabUrl = null;
   tabStartTime = null;
   
+  // Reset pause tracking
+  pausedAt = null;
+  totalPausedTime = 0;
+  
   // Clear any pending checks
   if (pendingCheck) {
     clearTimeout(pendingCheck);
@@ -352,6 +376,8 @@ async function checkTask() {
       currentTabUrl = tab.url;
       tabStartTime = Date.now();
       lastStrikeTime = null; // Reset cooldown on tab change
+      totalPausedTime = 0; // Reset paused time on tab change
+      pausedAt = null; // Clear pause state on tab change
       
       // Store tab info and clear lastStrikeTime
       await chrome.storage.local.set({
@@ -368,8 +394,14 @@ async function checkTask() {
       // Don't return - continue to check status
     }
     
-    // Calculate time spent on current tab
-    const timeOnTab = Date.now() - (tabStartTime || Date.now());
+    // Calculate time spent on current tab, accounting for paused time
+    const realTimeOnTab = Date.now() - (tabStartTime || Date.now());
+    const timeOnTab = realTimeOnTab - totalPausedTime;
+    
+    // Store the adjusted time for popup display
+    await chrome.storage.local.set({
+      adjustedTabStartTime: tabStartTime + totalPausedTime
+    });
     
     // Always check productivity status immediately
     // Only delay the strike, not the status check
@@ -436,8 +468,9 @@ async function checkTask() {
       currentTabProductivity: isOnTask ? 'Productive' : 'Unproductive'
     });
     
-    // Calculate time spent on current tab (recalculate since we used it earlier)
-    const timeOnTabNow = Date.now() - (tabStartTime || Date.now());
+    // Calculate time spent on current tab (recalculate since we used it earlier), accounting for paused time
+    const realTimeOnTabNow = Date.now() - (tabStartTime || Date.now());
+    const timeOnTabNow = realTimeOnTabNow - totalPausedTime;
     
     // Check if 30 seconds have passed since last strike
     const timeSinceLastStrike = lastStrikeTime ? Date.now() - lastStrikeTime : Infinity;
