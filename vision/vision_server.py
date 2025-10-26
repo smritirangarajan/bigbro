@@ -374,7 +374,10 @@ def call_user_vapi():
         print(f"📞 [ABSENCE CALL] Phone number: {user_phone}")
         print(f"📞 [ABSENCE CALL] Assistant ID: {VAPI_SLACK_OFF_ASSISTANT_ID}")
         
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        # Use async call with longer timeout
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        print(f"📞 [ABSENCE CALL] Response status: {response.status_code}")
         
         if response.status_code == 200:
             print(f"✅ [ABSENCE CALL] Vapi call initiated successfully to {user_phone}")
