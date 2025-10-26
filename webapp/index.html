@@ -58,6 +58,18 @@
           <h3>Total Calls</h3>
           <p class="stat-number" id="total-calls">0</p>
         </div>
+        <div class="stat-card">
+          <h3>Quiz Accuracy</h3>
+          <p class="stat-number" id="quiz-accuracy">0%</p>
+        </div>
+        <div class="stat-card">
+          <h3>Questions Answered</h3>
+          <p class="stat-number" id="total-quiz-questions">0</p>
+        </div>
+        <div class="stat-card">
+          <h3>Correct Answers</h3>
+          <p class="stat-number" id="correct-quiz-answers">0</p>
+        </div>
       </div>
       
       <!-- Session Control -->
@@ -68,6 +80,16 @@
           
           <button id="start-session-btn" class="btn btn-success">Start Session</button>
           <button id="stop-session-btn" class="btn btn-danger" style="display: none;">Stop Session</button>
+        </div>
+      </div>
+      
+      <!-- Quiz Section -->
+      <div id="quiz-section" class="quiz-section" style="display: none;">
+        <div class="session-card">
+          <h2>Reading Quiz</h2>
+          <p class="session-description">Test your comprehension of the content you just read.</p>
+          
+          <div id="quiz-content"></div>
         </div>
       </div>
       

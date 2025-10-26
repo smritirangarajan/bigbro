@@ -98,24 +98,28 @@
     
     <!-- Quiz Mode Section -->
     <div class="quiz-section">
-      <h2>Quiz Mode</h2>
+      <h2>Reading Quiz</h2>
       <div id="quiz-toggle-wrapper">
         <label class="quiz-toggle-label">
           <input type="checkbox" id="quiz-mode-toggle">
-          <span class="quiz-toggle-text">Enable Quiz Mode (tests your reading comprehension)</span>
+          <span class="quiz-toggle-text">Enable Reading Quiz</span>
         </label>
-        <p class="quiz-description">When enabled, content you read will be cached and you'll be randomly quizzed on it</p>
+        <p class="quiz-description">Capture and quiz you on what you read</p>
       </div>
       
-      <!-- Debug Logs Toggle -->
-      <div style="margin-top: 12px;">
-        <label class="quiz-toggle-label">
-          <input type="checkbox" id="debug-logs-toggle">
-          <span class="quiz-toggle-text" style="font-size: 13px;">Show Debug Logs</span>
-        </label>
+      <!-- Reading Controls -->
+      <div id="reading-controls" style="display: none; margin-top: 16px;">
+        <button id="start-reading-btn" class="btn-primary" style="width: 100%; margin-bottom: 8px;">Start Reading</button>
+        <button id="stop-reading-btn" class="btn-danger" style="display: none; width: 100%;">Stop Reading & Take Quiz</button>
+        <div id="reading-status" style="margin-top: 12px; padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 13px; color: #666;">
+          <div id="reading-progress">Click "Start Reading" to begin capturing content</div>
+          <div id="key-point-message" style="margin-top: 8px; font-style: italic; color: #888;"></div>
+        </div>
       </div>
-      <div id="debug-logs-container" style="display: none; margin-top: 12px; background: #f5f5f5; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 11px;">
-        <div id="debug-logs"></div>
+      
+      <!-- Quiz Display -->
+      <div id="quiz-display" style="display: none; margin-top: 16px;">
+        <div id="quiz-questions-container"></div>
       </div>
     </div>
     

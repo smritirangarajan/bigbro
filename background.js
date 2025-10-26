@@ -24,6 +24,7 @@ chrome.storage.local.get(['lastStrikeTime']).then(({ lastStrikeTime: stored }) =
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 DEBUG: Message received:', message.action, 'from:', sender.url);
+  console.log('📨 DEBUG: Full message:', JSON.stringify(message));
   
   if (message.action === 'startMonitoring') {
     startMonitoring();
@@ -50,10 +51,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       CLAUDE_API_KEY: CLAUDE_API_KEY
     });
-  } else if (message.action === 'startQuizMode') {
-    startQuizMode();
-  } else if (message.action === 'stopQuizMode') {
-    stopQuizMode();
+  } else if (message.action === 'startReading') {
+    console.log('📖 Received startReading message');
+    startReadingMode();
+  } else if (message.action === 'stopReadingAndQuiz') {
+    console.log('🛑 Received stopReadingAndQuiz message');
+    stopReadingAndGenerateQuiz();
   } else if (message.action === 'cacheContent') {
     console.log('📥 DEBUG: ✅ Received cacheContent message from content script');
     console.log('📥 DEBUG: Content length:', message.content ? message.content.length : 0);
@@ -67,6 +70,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('📸 DEBUG: Screenshot processing skipped, using text content instead');
   } else if (message.action === 'screenshotFailed') {
     console.log('Screenshot capture failed:', message.error);
+  } else if (message.type === 'quiz-completed') {
+    handleQuizCompletion(message.results);
+  } else {
+    console.log('⚠️ Unhandled message type:', message.action, message.type);
   }
   // Recording functionality removed - screenshots are captured automatically during monitoring
   return true;
@@ -1765,6 +1772,50 @@ async function handleQuizAnswer(userAnswer) {
   await chrome.storage.local.remove(['currentQuiz']);
 }
 
+async function handleQuizCompletion(results) {
+  try {
+    console.log('📊 Quiz completed, updating Supabase with results:', results);
+    
+    // Get user ID from storage
+    const { userId } = await chrome.storage.local.get(['userId']);
+    
+    if (!userId) {
+      console.log('❌ No user ID found, cannot update quiz stats');
+      return;
+    }
+    
+    // Calculate stats
+    const totalQuestions = results.length;
+    const correctAnswers = results.filter(r => r.isCorrect).length;
+    
+    console.log(`📊 Quiz Stats: ${correctAnswers}/${totalQuestions} correct`);
+    
+    // Update each answer in Supabase
+    for (const result of results) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_quiz_stats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          is_correct: result.isCorrect
+        })
+      });
+      
+      if (!response.ok) {
+        console.error('❌ Failed to update quiz stat for question');
+      }
+    }
+    
+    console.log('✅ Quiz stats updated successfully in Supabase');
+  } catch (error) {
+    console.error('❌ Error updating quiz completion:', error);
+  }
+}
+
 function showResultAlert(resultText) {
   alert(resultText);
 }
@@ -1821,6 +1872,319 @@ async function getUserID() {
   // Try to get from chrome storage first
   const { userId } = await chrome.storage.local.get(['userId']);
   return userId;
+}
+
+// Reading mode variables
+let readingModeEnabled = false;
+let readingContentCache = [];
+let readingInterval = null;
+
+async function captureCurrentTab() {
+  try {
+    console.log('📸 Capturing screen...');
+    console.log('📸 readingModeEnabled:', readingModeEnabled);
+    
+    if (!readingModeEnabled) {
+      console.log('⚠️ Reading mode not enabled, skipping capture');
+      return;
+    }
+    
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+    console.log('✅ Screenshot captured, length:', dataUrl.length);
+    
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url || 'unknown';
+    console.log('📸 Tab URL:', url);
+    
+    await analyzeScreenshotWithClaude(dataUrl, url);
+  } catch (error) {
+    console.error('❌ Error capturing screenshot:', error);
+    console.error('❌ Error details:', error.stack);
+  }
+}
+
+async function startReadingMode() {
+  try {
+    console.log('📖 Starting reading mode');
+    readingModeEnabled = true;
+    readingContentCache = [];
+    
+    await chrome.storage.local.set({ isReading: true });
+    
+    chrome.runtime.sendMessage({
+      type: 'reading-update',
+      progress: 'Capturing content every 10 seconds...'
+    });
+    
+    setTimeout(() => {
+      console.log('⏰ Timeout fired, calling captureCurrentTab');
+      captureCurrentTab();
+    }, 1000);
+    
+    readingInterval = setInterval(async () => {
+      if (!readingModeEnabled) {
+        clearInterval(readingInterval);
+        return;
+      }
+      
+      console.log('📸 Attempting to capture screenshot...');
+      await captureCurrentTab();
+    }, 10000);
+    
+    console.log('✅ Reading mode started');
+  } catch (error) {
+    console.error('❌ Error in startReadingMode:', error);
+    console.error('❌ Stack:', error.stack);
+  }
+}
+
+async function stopReadingAndGenerateQuiz() {
+  console.log('📝 Stopping reading mode and generating quiz');
+  readingModeEnabled = false;
+  
+  await chrome.storage.local.set({ isReading: false });
+  
+  if (readingInterval) {
+    clearInterval(readingInterval);
+    readingInterval = null;
+  }
+  
+  chrome.runtime.sendMessage({
+    type: 'reading-update',
+    progress: 'Generating quiz questions...'
+  });
+  
+  console.log('📊 readingContentCache length:', readingContentCache.length);
+  
+  if (readingContentCache.length > 0) {
+    await generateReadingQuiz();
+    
+    // Reset shown key points
+    await chrome.storage.local.set({ shownKeyPoints: [] });
+  } else {
+    chrome.runtime.sendMessage({
+      type: 'reading-update',
+      progress: 'No content captured. Try again.'
+    });
+  }
+}
+
+async function analyzeScreenshotWithClaude(dataUrl, url) {
+  try {
+    console.log('🔍 Analyzing screenshot with Claude for URL:', url);
+    
+    if (!dataUrl) {
+      console.error('❌ No dataUrl provided to analyzeScreenshotWithClaude');
+      return;
+    }
+    
+    const base64Image = dataUrl.split(',')[1];
+    console.log('📊 Base64 image length:', base64Image.length);
+    
+    const prompt = `Look at this screenshot. Extract and summarize the text content you see. If you notice any interesting facts or key information, briefly mention them.
+
+CRITICAL: Respond with ONLY valid JSON. No extra text, no markdown, no explanations. Just the JSON object:
+
+{
+  "summary": "Brief summary of the content",
+  "interestingFact": "Any interesting fact or key information you found, or null if none",
+  "keyPoints": ["point1", "point2", "point3"]
+}`;
+
+    console.log('🌐 Calling Claude API...');
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: base64Image
+              }
+            },
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    console.log('✅ Claude response received');
+    console.log('📊 Response status:', response.status);
+    
+    if (!response.ok) {
+      console.error('❌ Claude API error:', data);
+      return;
+    }
+    
+    if (data.content && data.content[0] && data.content[0].text) {
+      let responseText = data.content[0].text.trim();
+      
+      // Remove markdown code blocks if present
+      if (responseText.startsWith('```json')) {
+        responseText = responseText.replace(/```json\n?/, '').replace(/\n?```$/, '');
+      } else if (responseText.startsWith('```')) {
+        responseText = responseText.replace(/```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      let analysis;
+      try {
+        analysis = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        return;
+      }
+      
+      // Store in cache
+      const cacheEntry = {
+        url: url,
+        summary: analysis.summary,
+        keyPoints: analysis.keyPoints || [],
+        interestingFact: analysis.interestingFact,
+        timestamp: Date.now()
+      };
+      
+      readingContentCache.push(cacheEntry);
+      console.log('✅ Added to cache. Total entries:', readingContentCache.length);
+      
+      // Persist cache to storage
+      await chrome.storage.local.set({ readingContentCache: readingContentCache });
+      
+      // Send one key point at a time to avoid repetition
+      const keyPoints = analysis.keyPoints || [];
+      let keyPointToShow = null;
+      
+      // Get all previously shown key points
+      const { shownKeyPoints = [] } = await chrome.storage.local.get(['shownKeyPoints']);
+      
+      // Find a key point that hasn't been shown yet
+      for (const point of keyPoints) {
+        if (!shownKeyPoints.includes(point)) {
+          keyPointToShow = point;
+          shownKeyPoints.push(point);
+          await chrome.storage.local.set({ shownKeyPoints });
+          break;
+        }
+      }
+      
+      // If all have been shown, reset and start over
+      if (!keyPointToShow && keyPoints.length > 0) {
+        keyPointToShow = keyPoints[0];
+        await chrome.storage.local.set({ shownKeyPoints: [keyPoints[0]] });
+      }
+      
+      // Send update to UI
+      if (keyPointToShow) {
+        chrome.runtime.sendMessage({
+          type: 'reading-update',
+          progress: `Captured content from ${new URL(url).hostname}`,
+          keyPoint: keyPointToShow
+        });
+      } else {
+        chrome.runtime.sendMessage({
+          type: 'reading-update',
+          progress: `Captured content from ${new URL(url).hostname}`
+        });
+      }
+      
+      console.log('📸 Captured and analyzed content:', analysis.summary);
+    }
+  } catch (error) {
+    console.error('Error analyzing screenshot:', error);
+  }
+}
+
+async function generateReadingQuiz() {
+  try {
+    console.log('🎯 Generating quiz from captured content');
+    
+    // Combine all captured content
+    const allContent = readingContentCache.map(c => {
+      return `From ${c.url}:\n${c.summary}\nKey points: ${c.keyPoints.join(', ')}`;
+    }).join('\n\n');
+    
+    const prompt = `Based on the following reading content, generate a comprehensive quiz with 5 questions:
+
+Content:
+${allContent}
+
+Generate 5 questions total:
+- 3 multiple choice questions (with A, B, C, D options)
+- 2 true/false questions
+
+Format as JSON array:
+[
+  {
+    "type": "multiple_choice" OR "true_false",
+    "question": "question text",
+    "options": ["A", "B", "C", "D"] (only for multiple_choice),
+    "correct": "A" OR "B" OR "C" OR "D" OR "true" OR "false"
+  }
+]`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.content && data.content[0] && data.content[0].text) {
+      let responseText = data.content[0].text.trim();
+      
+      // Remove markdown code blocks if present
+      if (responseText.startsWith('```json')) {
+        responseText = responseText.replace(/```json\n?/, '').replace(/\n?```$/, '');
+      } else if (responseText.startsWith('```')) {
+        responseText = responseText.replace(/```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      const questions = JSON.parse(responseText);
+      
+      // Store questions for extension display
+      await chrome.storage.local.set({ 
+        readingQuizQuestions: questions,
+        quizReady: true
+      });
+      
+      console.log('✅ Quiz questions generated and stored');
+      
+      // Notify popup to display quiz
+      chrome.runtime.sendMessage({
+        type: 'quiz-ready'
+      });
+    }
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+  }
 }
 
 // ChromaDB removed - quiz mode now uses simple in-memory caching with Claude/Gemini only
