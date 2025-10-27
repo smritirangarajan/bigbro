@@ -13,6 +13,7 @@ __pycache__/
 venv/
 .venv/
 vision/venv/
+vision/.venv/
 
 # Logs
 *.log
@@ -32,6 +33,7 @@ supabase.js
 *.pem
 
 # Events and temp files
+vision/events.jsonl
 events.jsonl
 .events/
 *.tmp
