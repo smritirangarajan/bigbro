@@ -27,6 +27,7 @@ vision_server.log
 # Sensitive configuration files - DO NOT COMMIT
 config.js
 webapp/config.js
+supabase.js
 *.key
 *.pem
 

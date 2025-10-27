@@ -704,19 +704,20 @@ Analyze the screenshot (if provided) to see what's actually on the screen.
 Determine if the user appears to be on task or off task based on:
 1. The website content visible in the screenshot
 2. The URL and title
-3. Whether the content matches their STATED TASK
+3. Whether the content is REASONABLY RELATED to their task
 
-CRITICAL: The user is ONLY on task if what they're doing matches their stated task.
+IMPORTANT: Be GENEROUS and FLEXIBLE when determining if something is on-task. Give the user the benefit of the doubt whenever possible. Only mark as OFF_TASK if it's CLEARLY unrelated work or entertainment.
 
 Key examples:
-- Task "answer emails" or "send emails" or "reply to emails" + Gmail → ON_TASK
-- Task "learn Java" and Khan Academy showing Java → ON_TASK
-- Task "answer emails" but Khan Academy showing math → OFF_TASK
-- Task "learn math" but Instagram → OFF_TASK
+- Task "work" or "study" or any generic task → Almost any productive website is ON_TASK
+- Task "emails" + Gmail/Outlook/email clients → ON_TASK
+- Task "learn Java" + any educational site, StackOverflow, docs, tutorials → ON_TASK
+- Task "research" + Wikipedia, academic sites, articles → ON_TASK
+- Task "code" + GitHub, StackOverflow, coding tools → ON_TASK
+- Task "work" + social media, YouTube, games → OFF_TASK (only if clearly entertainment)
+- Task "email" + Instagram/Twitter/TikTok → OFF_TASK
 
-IMPORTANT: When the task involves emails/messages, being on Gmail/Outlook/Yahoo Mail is ON_TASK even if you can't see the exact content. The website context matters.
-
-The content must DIRECTLY relate to their stated task. Be flexible with interpretation - if task says "emails" and they're on an email client, that's ON_TASK.
+When in doubt, choose ON_TASK. Be lenient with interpretating whether something could be related to work/learning.
 
 Respond with only "ON_TASK" or "OFF_TASK".`
       }
@@ -790,8 +791,8 @@ Their current browser tab shows:
 You've determined they are ${isOnTask ? 'ON TASK' : 'OFF TASK'}.
 
 ${isOnTask 
-  ? 'Write a brief positive message encouraging them. Use variety - examples: "Good job staying focused!", "Way to tackle your task!", "Nice work on staying productive!"'
-  : 'Write a brief message questioning if this is the best use of their time. Use variety and be direct - examples: "Is this really helping you complete your task?", "Don\'t you think you should be working on your task instead?", "This doesn\'t seem aligned with your goals."'}
+  ? 'Write a brief, warm, and encouraging message celebrating their productivity. Be genuinely positive and supportive - examples: "Great focus! 🎯", "You\'re crushing it!", "Awesome progress!", "Staying on track like a pro!", "Keep this momentum going!" Use emojis and make them feel good about their work.'
+  : 'Write a brief message gently questioning if this is the best use of their time. Be constructive but not harsh - examples: "Hmm, is this related to your task?", "Should you switch to your task?", "This might be a distraction?" Be helpful, not judgmental.'}
 
 Keep it under 60 characters and make it feel natural.`
           }]
