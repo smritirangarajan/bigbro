@@ -14,10 +14,10 @@ A Chrome extension, web app, and Python vision server that work together to moni
 
 ### 1) Configure keys and environment
 - Copy templates and fill values:
-  - cp config_template.js config.js
-  - cp webapp/config_template.js webapp/config.js
+  - `cp config_template.js config.js`
+  - `cp webapp/config_template.js webapp/config.js`
 - Copy the environment example, then edit your values:
-  - cp .env.example .env
+  - `cp .env.example .env`
 - See [SECURITY.md](SECURITY.md) for sensitive file handling.
 
 ### 2) Start the vision server (Python)
